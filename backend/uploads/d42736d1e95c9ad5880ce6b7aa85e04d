@@ -1,0 +1,4 @@
+workerId,name,dept,service,status,date
+1,Alice Johnson,Music,Sunday Service,Present,2026-01-16
+2,Ben Carter,Children,Sunday Service,Late,2026-01-16
+3,Clara Yu,Maintenance,Sunday Service,Absent,2026-01-16

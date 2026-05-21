@@ -1,0 +1,17 @@
+{
+  "name": "church-hr-backend",
+  "version": "1.0.0",
+  "description": "Simple backend for Church HR Manager prototype",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node seed.js",
+    "setup-db": "node -e \"require('./database')\" && npm run seed"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "multer": "^1.4.4"
+  }
+}
