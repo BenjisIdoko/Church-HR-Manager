@@ -5,7 +5,8 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { Checkbox } from "./ui/checkbox";
-import { mockUsers, User } from "../utils/mockData";
+import { User } from "../utils/mockData";
+import { loginUser } from "../utils/api";
 
 interface LoginFormProps {
   onLogin: (user: User) => void;
@@ -17,29 +18,31 @@ export function LoginForm({ onLogin }: LoginFormProps) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    const matchedUser = mockUsers.find(
-      (user) => user.email.toLowerCase() === email.toLowerCase() && user.password === password,
-    );
-
-    if (!matchedUser) {
-      setError(
-        "Invalid username or password. Try admin@church.com / Admin@123, manager@church.com / Manager@123, or john.smith@church.com / Member@123.",
-      );
-      return;
-    }
-
+    setLoading(true);
     setError("");
-    onLogin(matchedUser);
-    if (matchedUser.role === "superadmin") {
-      navigate("/dashboard");
-    } else if (matchedUser.role === "manager") {
-      navigate("/workers");
-    } else {
-      navigate("/member");
+
+    try {
+      const matchedUser = await loginUser(email, password);
+      onLogin(matchedUser);
+      if (matchedUser.role === "superadmin") {
+        navigate("/dashboard");
+      } else if (matchedUser.role === "manager") {
+        navigate("/workers");
+      } else {
+        navigate("/member");
+      }
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Invalid username or password. Try admin@church.com / Admin@123, manager@church.com / Manager@123, or alice@church.org / Member@123.",
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -127,8 +130,8 @@ export function LoginForm({ onLogin }: LoginFormProps) {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full">
-              Sign in
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Signing in..." : "Sign in"}
             </Button>
           </CardFooter>
         </form>

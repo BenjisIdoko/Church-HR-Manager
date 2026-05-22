@@ -1,5 +1,5 @@
 import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { LoginForm } from "./components/LoginForm";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
 import { AppLayout } from "./components/AppLayout";
@@ -12,12 +12,9 @@ import { AttendanceDetailView } from "./components/AttendanceDetailView";
 import { ReportsAnalytics } from "./components/ReportsAnalytics";
 import { Settings } from "./components/Settings";
 import { Toaster } from "./components/ui/sonner";
-import {
-  mockWorkers,
-  mockDepartments,
-  User,
-  Worker,
-} from "./utils/mockData";
+import { Alert, AlertDescription } from "./components/ui/alert";
+import { fetchAttendance, fetchKpis, fetchWorkers, saveWorker } from "./utils/api";
+import { AttendanceRecord, User, Worker } from "./utils/mockData";
 
 interface UpdateHistoryEntry {
   workerId: string;
@@ -50,9 +47,46 @@ function LoginPage({ onLogin }: LoginPageProps) {
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [workers, setWorkers] = useState<Worker[]>(mockWorkers);
-  const [departments, setDepartments] = useState<string[]>(mockDepartments);
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [updateHistory, setUpdateHistory] = useState<UpdateHistoryEntry[]>([]);
+  const [manualDepartments, setManualDepartments] = useState<string[]>([]);
+  const [loadingData, setLoadingData] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
+  const [lastSync, setLastSync] = useState<string | null>(null);
+
+  const departments = useMemo(
+    () =>
+      Array.from(new Set([...manualDepartments, ...workers.map((worker) => worker.department)])).sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [manualDepartments, workers],
+  );
+
+  const loadAppData = useCallback(async () => {
+    setLoadingData(true);
+    setDataError(null);
+
+    try {
+      const [workersData, attendanceData, kpiData] = await Promise.all([
+        fetchWorkers(),
+        fetchAttendance(),
+        fetchKpis(),
+      ]);
+
+      setWorkers(workersData);
+      setAttendanceRecords(attendanceData);
+      setLastSync(kpiData.lastSync);
+    } catch (error) {
+      setDataError(error instanceof Error ? error.message : "Failed to load application data.");
+    } finally {
+      setLoadingData(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadAppData();
+  }, [loadAppData]);
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
@@ -62,21 +96,23 @@ export default function App() {
     setCurrentUser(null);
   };
 
-  const handleUpdateWorker = (updatedWorker: Worker) => {
+  const handleUpdateWorker = async (updatedWorker: Worker) => {
     const previousWorker = workers.find((item) => item.id === updatedWorker.id);
-    setWorkers((prev) => prev.map((item) => (item.id === updatedWorker.id ? updatedWorker : item)));
-    if (currentUser?.role === "member" && currentUser.workerId === updatedWorker.id) {
-      setCurrentUser({ ...currentUser, name: updatedWorker.name, email: updatedWorker.email });
+    const persistedWorker = await saveWorker(updatedWorker);
+
+    setWorkers((prev) => prev.map((item) => (item.id === persistedWorker.id ? persistedWorker : item)));
+    if (currentUser?.role === "member" && currentUser.workerId === persistedWorker.id) {
+      setCurrentUser({ ...currentUser, name: persistedWorker.name, email: persistedWorker.email });
     }
 
     if (previousWorker) {
       const changes = [
-        previousWorker.name !== updatedWorker.name ? "name" : null,
-        previousWorker.email !== updatedWorker.email ? "email" : null,
-        previousWorker.phone !== updatedWorker.phone ? "phone" : null,
-        previousWorker.department !== updatedWorker.department ? "department" : null,
-        previousWorker.role !== updatedWorker.role ? "role" : null,
-        previousWorker.status !== updatedWorker.status ? "status" : null,
+        previousWorker.name !== persistedWorker.name ? "name" : null,
+        previousWorker.email !== persistedWorker.email ? "email" : null,
+        previousWorker.phone !== persistedWorker.phone ? "phone" : null,
+        previousWorker.department !== persistedWorker.department ? "department" : null,
+        previousWorker.role !== persistedWorker.role ? "role" : null,
+        previousWorker.status !== persistedWorker.status ? "status" : null,
       ]
         .filter(Boolean)
         .join(", ");
@@ -84,8 +120,8 @@ export default function App() {
       if (changes) {
         setUpdateHistory((prev) => [
           {
-            workerId: updatedWorker.id,
-            workerName: updatedWorker.name,
+            workerId: persistedWorker.id,
+            workerName: persistedWorker.name,
             timestamp: new Date().toLocaleString(),
             changes,
           },
@@ -98,20 +134,34 @@ export default function App() {
   const handleAddDepartment = (department: string) => {
     const normalized = department.trim();
     if (!normalized) return;
-    setDepartments((prev) => Array.from(new Set([...prev, normalized])));
+    setManualDepartments((prev) => Array.from(new Set([...prev, normalized])));
   };
 
-  const handleUpdateProfile = (updated: { name: string; email: string; phone: string }) => {
+  const handleUpdateProfile = async (updated: { name: string; email: string; phone: string }) => {
     if (!currentUser) return;
-    setCurrentUser((prev) => (prev ? { ...prev, name: updated.name, email: updated.email } : prev));
 
     if (currentUser.role === "member" && currentUser.workerId) {
       const worker = workers.find((w) => w.id === currentUser.workerId);
       if (worker) {
-        handleUpdateWorker({ ...worker, name: updated.name, email: updated.email, phone: updated.phone });
+        await handleUpdateWorker({ ...worker, name: updated.name, email: updated.email, phone: updated.phone });
       }
+      setCurrentUser((prev) => (prev ? { ...prev, name: updated.name, email: updated.email } : prev));
+      return;
     }
+
+    setCurrentUser((prev) => (prev ? { ...prev, name: updated.name, email: updated.email } : prev));
   };
+
+  const renderPage = (content: React.ReactNode) => (
+    <>
+      {dataError ? (
+        <Alert variant="destructive">
+          <AlertDescription>{dataError}</AlertDescription>
+        </Alert>
+      ) : null}
+      {content}
+    </>
+  );
 
   return (
     <Router>
@@ -140,7 +190,15 @@ export default function App() {
           element={
             currentUser?.role === "superadmin" ? (
               <AppLayout user={currentUser} onLogout={handleLogout}>
-                <AdminDashboard />
+                {renderPage(
+                  <AdminDashboard
+                    workers={workers}
+                    attendanceRecords={attendanceRecords}
+                    lastSync={lastSync}
+                    loading={loadingData}
+                    onRefresh={loadAppData}
+                  />,
+                )}
               </AppLayout>
             ) : (
               <Navigate to="/" replace />
@@ -152,7 +210,7 @@ export default function App() {
           element={
             currentUser?.role === "superadmin" ? (
               <AppLayout user={currentUser} onLogout={handleLogout}>
-                <DataImportScreen />
+                {renderPage(<DataImportScreen onImportComplete={loadAppData} />)}
               </AppLayout>
             ) : (
               <Navigate to="/" replace />
@@ -164,12 +222,14 @@ export default function App() {
           element={
             currentUser?.role === "superadmin" || currentUser?.role === "manager" ? (
               <AppLayout user={currentUser} onLogout={handleLogout}>
-                <MemberDirectory
-                  workers={workers}
-                  departments={departments}
-                  updateHistory={updateHistory}
-                  onUpdateWorker={handleUpdateWorker}
-                />
+                {renderPage(
+                  <MemberDirectory
+                    workers={workers}
+                    departments={departments}
+                    updateHistory={updateHistory}
+                    onUpdateWorker={handleUpdateWorker}
+                  />,
+                )}
               </AppLayout>
             ) : (
               <Navigate to="/" replace />
@@ -181,7 +241,7 @@ export default function App() {
           element={
             currentUser?.role === "superadmin" ? (
               <AppLayout user={currentUser} onLogout={handleLogout}>
-                <AttendanceOverview />
+                {renderPage(<AttendanceOverview attendanceRecords={attendanceRecords} loading={loadingData} />)}
               </AppLayout>
             ) : (
               <Navigate to="/" replace />
@@ -193,7 +253,13 @@ export default function App() {
           element={
             currentUser?.role === "superadmin" ? (
               <AppLayout user={currentUser} onLogout={handleLogout}>
-                <AttendanceDetailView />
+                {renderPage(
+                  <AttendanceDetailView
+                    workers={workers}
+                    attendanceRecords={attendanceRecords}
+                    loading={loadingData}
+                  />,
+                )}
               </AppLayout>
             ) : (
               <Navigate to="/" replace />
@@ -205,7 +271,7 @@ export default function App() {
           element={
             currentUser?.role === "superadmin" ? (
               <AppLayout user={currentUser} onLogout={handleLogout}>
-                <ReportsAnalytics />
+                {renderPage(<ReportsAnalytics attendanceRecords={attendanceRecords} loading={loadingData} />)}
               </AppLayout>
             ) : (
               <Navigate to="/" replace />
@@ -217,7 +283,7 @@ export default function App() {
           element={
             currentUser?.role === "superadmin" ? (
               <AppLayout user={currentUser} onLogout={handleLogout}>
-                <Settings departments={departments} onAddDepartment={handleAddDepartment} />
+                {renderPage(<Settings departments={departments} onAddDepartment={handleAddDepartment} />)}
               </AppLayout>
             ) : (
               <Navigate to="/" replace />
@@ -229,11 +295,13 @@ export default function App() {
           element={
             currentUser?.role === "member" ? (
               <AppLayout user={currentUser} onLogout={handleLogout}>
-                <MemberDashboard
-                  user={currentUser}
-                  worker={workers.find((w) => w.id === currentUser.workerId)}
-                  onUpdateProfile={handleUpdateProfile}
-                />
+                {renderPage(
+                  <MemberDashboard
+                    user={currentUser}
+                    worker={workers.find((w) => w.id === currentUser.workerId)}
+                    onUpdateProfile={handleUpdateProfile}
+                  />,
+                )}
               </AppLayout>
             ) : (
               <Navigate to="/" replace />

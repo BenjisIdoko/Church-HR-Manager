@@ -5,12 +5,36 @@ const { statements } = require('./database')
 const jibbleService = require('./jibbleService')
 
 const app = express()
+const demoUsers = [
+  {
+    id: 'U000',
+    name: 'Super Admin',
+    email: 'admin@church.com',
+    password: 'Admin@123',
+    role: 'superadmin',
+  },
+  {
+    id: 'U001',
+    name: 'Alice Johnson',
+    email: 'alice@church.org',
+    password: 'Member@123',
+    role: 'member',
+    workerId: 'W001',
+  },
+  {
+    id: 'U002',
+    name: 'Manager User',
+    email: 'manager@church.com',
+    password: 'Manager@123',
+    role: 'manager',
+  },
+]
 
 app.use(cors())
 app.use(express.json())
 
 // Serve frontend static files
-app.use('/', express.static(path.join(__dirname, '../frontend')))
+app.use('/', express.static(path.join(__dirname, '../build')))
 
 // Helper function to update KPIs
 function updateKPIs() {
@@ -38,8 +62,84 @@ function normalizeStatus(status) {
   return 'Absent';
 }
 
+function normalizeAttendanceStatus(status) {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (normalized === 'present') return 'present';
+  if (normalized === 'late') return 'late';
+  return 'absent';
+}
+
+function normalizeWorkerStatus(status) {
+  const normalized = String(status || '').trim().toLowerCase();
+  return normalized === 'active' ? 'active' : 'inactive';
+}
+
+function toWorkerId(record) {
+  return record.external_id || `W${String(record.id).padStart(3, '0')}`;
+}
+
+function formatWorker(record) {
+  return {
+    id: toWorkerId(record),
+    dbId: record.id,
+    name: record.name,
+    department: record.dept,
+    role: record.role,
+    status: normalizeWorkerStatus(record.status),
+    email: record.email || '',
+    phone: record.phone || '',
+  };
+}
+
+function formatAttendance(record) {
+  return {
+    id: String(record.id),
+    workerId: record.external_id || `W${String(record.worker_id).padStart(3, '0')}`,
+    workerName: record.name,
+    department: record.dept,
+    service: record.service,
+    status: normalizeAttendanceStatus(record.status),
+    date: record.date,
+  };
+}
+
+function collapseAttendanceRecords(records) {
+  const grouped = new Map();
+
+  for (const record of records) {
+    const key = `${record.workerId}:${record.date}`;
+    const existing = grouped.get(key);
+
+    if (!existing) {
+      grouped.set(key, { ...record });
+      continue;
+    }
+
+    if (existing.status !== 'present' && record.status === 'present') {
+      existing.status = 'present';
+    } else if (existing.status === 'absent' && record.status === 'late') {
+      existing.status = 'late';
+    }
+
+    if (existing.service !== record.service) {
+      existing.service = 'Multiple Services';
+    }
+  }
+
+  return Array.from(grouped.values()).sort((a, b) => {
+    if (a.date === b.date) {
+      return a.workerName.localeCompare(b.workerName);
+    }
+    return b.date.localeCompare(a.date);
+  });
+}
+
+function toStoredWorkerStatus(status) {
+  return normalizeWorkerStatus(status) === 'active' ? 'Active' : 'Inactive';
+}
+
 function findOrCreateWorker(externalId, name, dept) {
-  const existing = statements.getWorkerByExternalId.get(externalId);
+  const existing = externalId ? statements.getWorkerByExternalId.get(externalId) : null;
   if (existing) {
     return existing.id;
   }
@@ -91,10 +191,18 @@ function importAttendance(records) {
 
 // Auth (very simple prototype)
 app.post('/api/login', (req, res) => {
-  const { username, password } = req.body
-  if (username === 'admin' && password === 'password') {
-    return res.json({ ok: true, user: { name: 'Administrator' }, token: 'fake-jwt-token' })
+  const { username, email, password } = req.body || {}
+  const identifier = String(username || email || '').trim().toLowerCase()
+
+  const matchedUser = demoUsers.find((user) => {
+    return (user.email.toLowerCase() === identifier || user.name.toLowerCase() === identifier) && user.password === password
+  })
+
+  if (matchedUser) {
+    const { password: _password, ...safeUser } = matchedUser
+    return res.json({ ok: true, user: safeUser })
   }
+
   res.status(401).json({ ok: false, message: 'Invalid credentials' })
 })
 
@@ -117,27 +225,60 @@ app.get('/api/kpis', (req, res) => {
 app.get('/api/workers', (req, res) => {
   try {
     const workers = statements.getAllWorkers.all();
-    res.json(workers);
+    res.json(workers.map(formatWorker));
   } catch (error) {
     console.error('Error fetching workers:', error);
     res.status(500).json({ error: 'Failed to fetch workers' });
   }
 })
 
+app.put('/api/workers/:workerId', (req, res) => {
+  const { workerId } = req.params;
+  const { name, email, phone, department, role, status } = req.body || {};
+
+  if (!name || !department || !role) {
+    return res.status(400).json({ ok: false, message: 'Name, department, and role are required.' });
+  }
+
+  try {
+    const existing = statements.getWorkerByExternalId.get(workerId);
+    if (!existing) {
+      return res.status(404).json({ ok: false, message: 'Worker not found.' });
+    }
+
+    statements.updateWorker.run(
+      String(name).trim(),
+      String(email || '').trim() || null,
+      String(phone || '').trim() || null,
+      String(department).trim(),
+      String(role).trim(),
+      toStoredWorkerStatus(status),
+      existing.id,
+    );
+
+    const updated = statements.getWorkerByExternalId.get(workerId);
+    res.json({ ok: true, worker: formatWorker(updated) });
+  } catch (error) {
+    console.error('Error updating worker:', error);
+    res.status(500).json({ ok: false, message: 'Failed to update worker.' });
+  }
+})
+
 app.get('/api/attendance', (req, res) => {
   try {
-    const attendance = statements.getAllAttendance.all();
-    // Transform to match frontend expectations
-    const transformed = attendance.map(record => ({
-      id: record.id,
-      workerId: record.worker_id,
-      name: record.name,
-      dept: record.dept,
-      service: record.service,
-      status: record.status,
-      date: record.date
-    }));
-    res.json(transformed);
+    const { date, startDate, endDate, department, workerId } = req.query;
+    const attendance = collapseAttendanceRecords(statements.getAllAttendance.all().map(formatAttendance));
+
+    const filtered = attendance.filter((record) => {
+      if (date && record.date !== date) return false;
+      if (startDate && record.date < startDate) return false;
+      if (endDate && record.date > endDate) return false;
+      if (department && department !== 'all' && record.department !== department) return false;
+      if (workerId && record.workerId !== workerId) return false;
+      return true;
+    });
+
+    res.json(filtered);
   } catch (error) {
     console.error('Error fetching attendance:', error);
     res.status(500).json({ error: 'Failed to fetch attendance' });
@@ -286,7 +427,7 @@ app.get('/api/workers/search', (req, res) => {
       w.dept.toLowerCase().includes(q) ||
       w.role.toLowerCase().includes(q)
     );
-    res.json(results);
+    res.json(results.map(formatWorker));
   } catch (error) {
     console.error('Error searching workers:', error);
     res.status(500).json({ error: 'Failed to search workers' });

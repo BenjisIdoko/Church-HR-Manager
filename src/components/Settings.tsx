@@ -16,10 +16,10 @@ interface SettingsProps {
 }
 
 export function Settings({ departments, onAddDepartment }: SettingsProps) {
-  const [orgName, setOrgName] = useState("Acme Corporation");
-  const [orgAddress, setOrgAddress] = useState("123 Business St, City, Country");
-  const [adminName, setAdminName] = useState("Admin User");
-  const [adminEmail, setAdminEmail] = useState("admin@acme.com");
+  const [orgName, setOrgName] = useState("Church HR Manager");
+  const [orgAddress, setOrgAddress] = useState("Main Church Auditorium");
+  const [adminName, setAdminName] = useState("Super Admin");
+  const [adminEmail, setAdminEmail] = useState("admin@church.com");
   const [autoImport, setAutoImport] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [newDepartment, setNewDepartment] = useState("");

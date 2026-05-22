@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -6,22 +6,42 @@ import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Download, Calendar, BarChart3, PieChart as PieChartIcon, FileJson } from "lucide-react";
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { mockAttendanceRecords } from "../utils/mockData";
+import { AttendanceRecord } from "../utils/mockData";
 import { exportToCSV } from "../utils/tableUtils";
 
 const COLORS = ['hsl(142, 76%, 36%)', 'hsl(45, 93%, 47%)', 'hsl(0, 84%, 60%)'];
 
-export function ReportsAnalytics() {
-  const [startDate, setStartDate] = useState(
-    new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+interface ReportsAnalyticsProps {
+  attendanceRecords: AttendanceRecord[];
+  loading?: boolean;
+}
+
+export function ReportsAnalytics({ attendanceRecords, loading = false }: ReportsAnalyticsProps) {
+  const latestDate = useMemo(
+    () => attendanceRecords.reduce((latest, record) => (record.date > latest ? record.date : latest), ""),
+    [attendanceRecords],
   );
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const defaultStartDate = useMemo(() => {
+    if (!latestDate) return new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const start = new Date(latestDate);
+    start.setDate(start.getDate() - 30);
+    return start.toISOString().split('T')[0];
+  }, [latestDate]);
+  const [startDate, setStartDate] = useState(defaultStartDate);
+  const [endDate, setEndDate] = useState(latestDate || new Date().toISOString().split('T')[0]);
   const [departmentFilter, setDepartmentFilter] = useState("all");
 
-  const departments = Array.from(new Set(mockAttendanceRecords.map((r) => r.department)));
+  useEffect(() => {
+    if (latestDate) {
+      setEndDate(latestDate);
+      setStartDate(defaultStartDate);
+    }
+  }, [defaultStartDate, latestDate]);
+
+  const departments = Array.from(new Set(attendanceRecords.map((r) => r.department)));
 
   // Filter records by date range and department
-  const filteredRecords = mockAttendanceRecords.filter((record) => {
+  const filteredRecords = attendanceRecords.filter((record) => {
     const recordDate = new Date(record.date);
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -98,7 +118,7 @@ export function ReportsAnalytics() {
         <div>
           <h1>Reports & Analytics</h1>
           <p className="text-muted-foreground">
-            Generate and analyze attendance reports
+            {loading ? "Loading report data from the database..." : "Generate and analyze attendance reports"}
           </p>
         </div>
       </div>
@@ -164,7 +184,18 @@ export function ReportsAnalytics() {
               <Download className="h-4 w-4 mr-2" />
               Export to CSV
             </Button>
-            <Button variant="outline">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const blob = new Blob([JSON.stringify(filteredRecords, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = `attendance_report_${startDate}_to_${endDate}.json`;
+                link.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
               <FileJson className="h-4 w-4 mr-2" />
               Export to JSON
             </Button>

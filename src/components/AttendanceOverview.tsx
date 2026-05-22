@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
@@ -6,22 +6,37 @@ import { Button } from "./ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Calendar, Filter, Eye, Download, ChevronUp, ChevronDown, RotateCcw } from "lucide-react";
-import { mockAttendanceRecords } from "../utils/mockData";
+import { AttendanceRecord } from "../utils/mockData";
 import { useNavigate } from "react-router-dom";
-import { filterData, sortData, SortConfig, exportToCSV } from "../utils/tableUtils";
+import { sortData, SortConfig, exportToCSV } from "../utils/tableUtils";
 
-export function AttendanceOverview() {
+interface AttendanceOverviewProps {
+  attendanceRecords: AttendanceRecord[];
+  loading?: boolean;
+}
+
+export function AttendanceOverview({ attendanceRecords, loading = false }: AttendanceOverviewProps) {
   const navigate = useNavigate();
-  const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]);
+  const latestDate = useMemo(
+    () => attendanceRecords.reduce((latest, record) => (record.date > latest ? record.date : latest), ""),
+    [attendanceRecords],
+  );
+  const [dateFilter, setDateFilter] = useState(latestDate || new Date().toISOString().split('T')[0]);
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
 
-  const departments = Array.from(new Set(mockAttendanceRecords.map((r) => r.department)));
+  useEffect(() => {
+    if (latestDate) {
+      setDateFilter((current) => (attendanceRecords.some((record) => record.date === current) ? current : latestDate));
+    }
+  }, [attendanceRecords, latestDate]);
+
+  const departments = Array.from(new Set(attendanceRecords.map((r) => r.department)));
 
   // Apply filters
-  const filteredRecords = mockAttendanceRecords.filter((record) => {
+  const filteredRecords = attendanceRecords.filter((record) => {
     const matchesDate = record.date === dateFilter;
     const matchesDepartment = departmentFilter === "all" || record.department === departmentFilter;
     const matchesStatus = statusFilter === "all" || record.status === statusFilter;
@@ -68,7 +83,7 @@ export function AttendanceOverview() {
 
   const handleReset = () => {
     setSearchQuery("");
-    setDateFilter(new Date().toISOString().split('T')[0]);
+    setDateFilter(latestDate || new Date().toISOString().split('T')[0]);
     setDepartmentFilter("all");
     setStatusFilter("all");
     setSortConfig(null);
@@ -110,9 +125,9 @@ export function AttendanceOverview() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Attendance Records ({sortedRecords.length} of {mockAttendanceRecords.length})</CardTitle>
+          <CardTitle>Attendance Records ({sortedRecords.length} of {attendanceRecords.length})</CardTitle>
           <CardDescription>
-            Filter, search, and sort attendance records
+            {loading ? "Loading attendance from the database..." : "Filter, search, and sort attendance records"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -252,7 +267,7 @@ export function AttendanceOverview() {
 
           {/* Summary */}
           <div className="mt-4 flex flex-wrap gap-4 text-sm text-muted-foreground">
-            <div>Showing {sortedRecords.length} of {mockAttendanceRecords.length} records</div>
+            <div>Showing {sortedRecords.length} of {attendanceRecords.length} records</div>
             {sortConfig && (
               <div>Sorted by: {sortConfig.key} ({sortConfig.direction})</div>
             )}

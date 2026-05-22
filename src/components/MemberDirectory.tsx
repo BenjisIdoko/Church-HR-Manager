@@ -23,7 +23,7 @@ interface MemberDirectoryProps {
   workers: Worker[];
   departments: string[];
   updateHistory: UpdateHistoryEntry[];
-  onUpdateWorker: (worker: Worker) => void;
+  onUpdateWorker: (worker: Worker) => Promise<void>;
   editable?: boolean;
 }
 
@@ -100,11 +100,15 @@ export function MemberDirectory({
     setSortConfig(null);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!selectedWorker) return;
-    onUpdateWorker(selectedWorker);
-    toast.success("Worker update saved and history recorded.");
-    setSelectedWorker(null);
+    try {
+      await onUpdateWorker(selectedWorker);
+      toast.success("Worker update saved and history recorded.");
+      setSelectedWorker(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save worker update.");
+    }
   };
 
   const handleStartEdit = (worker: Worker) => {

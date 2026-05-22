@@ -11,7 +11,11 @@ import { processFileUpload, CSVParseResult, ValidationError, ValidationWarning }
 type ImportStatus = "idle" | "validating" | "success" | "error";
 type ImportType = "attendance" | "workers";
 
-export function DataImportScreen() {
+interface DataImportScreenProps {
+  onImportComplete?: () => void | Promise<void>;
+}
+
+export function DataImportScreen({ onImportComplete }: DataImportScreenProps) {
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<ImportStatus>("idle");
   const [importType, setImportType] = useState<ImportType>("attendance");
@@ -95,6 +99,7 @@ export function DataImportScreen() {
       }
 
       alert(`Imported ${result.imported} records successfully!`);
+      await onImportComplete?.();
       handleReset();
     } catch (error) {
       alert(`Import error: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -127,6 +132,7 @@ export function DataImportScreen() {
 
       setJibbleMessage(result.message || `Imported ${result.imported} attendance records from Jibble.`);
       if (result.imported > 0) {
+        await onImportComplete?.();
         handleReset();
       }
     } catch (error) {

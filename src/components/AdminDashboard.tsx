@@ -1,21 +1,59 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Users, UserCheck, UserX, Upload, BarChart3 } from "lucide-react";
-import { getAttendanceStats, getAttendanceTrend } from "../utils/mockData";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { useNavigate } from "react-router-dom";
+import { AttendanceRecord, Worker } from "../utils/mockData";
 
-export function AdminDashboard() {
+interface AdminDashboardProps {
+  workers: Worker[];
+  attendanceRecords: AttendanceRecord[];
+  lastSync: string | null;
+  loading?: boolean;
+  onRefresh: () => void | Promise<void>;
+}
+
+function getLatestAttendanceDate(attendanceRecords: AttendanceRecord[]) {
+  return attendanceRecords.reduce((latest, record) => {
+    return record.date > latest ? record.date : latest;
+  }, "");
+}
+
+export function AdminDashboard({
+  workers,
+  attendanceRecords,
+  lastSync,
+  loading = false,
+  onRefresh,
+}: AdminDashboardProps) {
   const navigate = useNavigate();
-  const stats = getAttendanceStats();
-  const trendData = getAttendanceTrend();
-  const lastSync = new Date().toLocaleString();
+  const activeWorkers = workers.filter((worker) => worker.status === "active");
+  const latestDate = getLatestAttendanceDate(attendanceRecords);
+  const latestRecords = latestDate ? attendanceRecords.filter((record) => record.date === latestDate) : [];
+  const presentToday = latestRecords.filter((record) => record.status === "present").length;
+  const lateToday = latestRecords.filter((record) => record.status === "late").length;
+  const absentToday = latestRecords.filter((record) => record.status === "absent").length;
+  const attendanceRate =
+    activeWorkers.length > 0 ? Math.round(((presentToday + lateToday) / activeWorkers.length) * 100) : 0;
+  const departmentCount = new Set(workers.map((worker) => worker.department)).size;
+
+  const trendData = Array.from(new Set(attendanceRecords.map((record) => record.date)))
+    .sort((a, b) => a.localeCompare(b))
+    .slice(-7)
+    .map((date) => {
+      const recordsForDate = attendanceRecords.filter((record) => record.date === date);
+      return {
+        date: new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        present: recordsForDate.filter((record) => record.status === "present" || record.status === "late").length,
+        absent: recordsForDate.filter((record) => record.status === "absent").length,
+      };
+    });
 
   const overviewCards = [
     {
       title: "Total Workers",
-      value: 248,
-      subtitle: "Across 7 departments",
+      value: activeWorkers.length,
+      subtitle: `Across ${departmentCount} departments`,
       color: "from-[#fce4d6] to-[#fdf1eb]",
       iconBg: "bg-white/80",
       icon: Users,
@@ -23,8 +61,8 @@ export function AdminDashboard() {
     },
     {
       title: "Present Today",
-      value: 224,
-      subtitle: "90.3% attendance rate",
+      value: presentToday,
+      subtitle: `${attendanceRate}% attendance rate`,
       color: "from-[#d9e8f6] to-[#eaf4fb]",
       iconBg: "bg-white/80",
       icon: UserCheck,
@@ -32,8 +70,8 @@ export function AdminDashboard() {
     },
     {
       title: "Late Today",
-      value: 28,
-      subtitle: "11% of present",
+      value: lateToday,
+      subtitle: latestDate ? `For ${new Date(latestDate).toLocaleDateString()}` : "No synced records yet",
       color: "from-[#f0d9f6] to-[#f8eafb]",
       iconBg: "bg-white/80",
       icon: Upload,
@@ -41,7 +79,7 @@ export function AdminDashboard() {
     },
     {
       title: "Absent Today",
-      value: 24,
+      value: absentToday,
       subtitle: "Follow-up recommended",
       color: "from-[#d9f0e6] to-[#eaf8f1]",
       iconBg: "bg-white/80",
@@ -133,16 +171,21 @@ export function AdminDashboard() {
               <div className="space-y-4">
                 <p className="font-medium text-white">Attendance synced from Jibble</p>
                 <p className="text-sm leading-6 text-slate-300">
-                  224 workers checked in across the 1st Service. 28 marked late, 24 absent.
+                  {loading
+                    ? "Refreshing attendance data from the database."
+                    : `${presentToday + lateToday} workers checked in. ${lateToday} marked late, ${absentToday} absent.`}
                 </p>
                 <div className="rounded-3xl bg-slate-800/50 p-4">
                   <div className="flex items-center justify-between gap-2 text-sm text-slate-400">
                     <span>Last sync</span>
-                    <span>2 minutes ago</span>
+                    <span>{lastSync ? new Date(lastSync).toLocaleString() : "Not synced yet"}</span>
                   </div>
                 </div>
               </div>
-              <Button className="w-full justify-center bg-[#ea6a47] hover:bg-[#d85a37] text-white shadow-md hover:shadow-lg transition-all duration-200">
+              <Button
+                className="w-full justify-center bg-[#ea6a47] hover:bg-[#d85a37] text-white shadow-md hover:shadow-lg transition-all duration-200"
+                onClick={() => void onRefresh()}
+              >
                 Sync now
               </Button>
             </CardContent>

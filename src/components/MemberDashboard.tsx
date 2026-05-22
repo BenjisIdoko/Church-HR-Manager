@@ -10,7 +10,7 @@ import { User, Worker } from "../utils/mockData";
 interface MemberDashboardProps {
   user: User;
   worker?: Worker;
-  onUpdateProfile: (updated: { name: string; email: string; phone: string }) => void;
+  onUpdateProfile: (updated: { name: string; email: string; phone: string }) => Promise<void>;
 }
 
 export function MemberDashboard({ user, worker, onUpdateProfile }: MemberDashboardProps) {
@@ -18,9 +18,13 @@ export function MemberDashboard({ user, worker, onUpdateProfile }: MemberDashboa
   const [email, setEmail] = useState(user.email);
   const [phone, setPhone] = useState(worker?.phone ?? "");
 
-  const handleSave = () => {
-    onUpdateProfile({ name, email, phone });
-    toast.success("Your profile has been updated.");
+  const handleSave = async () => {
+    try {
+      await onUpdateProfile({ name, email, phone });
+      toast.success("Your profile has been updated.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update your profile.");
+    }
   };
 
   return (

@@ -71,6 +71,10 @@ export function AppLayout({ children, user, onLogout }: AppLayoutProps) {
       : user.role === "manager"
       ? managerNavItems
       : memberNavItems;
+  const roleLabel =
+    user.role === "superadmin" ? "Super Admin" : user.role === "manager" ? "Manager" : "Member";
+  const roleDescription =
+    user.role === "superadmin" ? "Administrator" : user.role === "manager" ? "Manager" : "Member";
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-900">
@@ -192,7 +196,7 @@ export function AppLayout({ children, user, onLogout }: AppLayoutProps) {
               </Button>
               <div>
                 <p className="text-sm text-slate-500">Welcome back, {user.name}</p>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">{user.role === "superadmin" ? "Super Admin" : "Member"}</p>
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">{roleLabel}</p>
               </div>
             </div>
 
@@ -210,7 +214,7 @@ export function AppLayout({ children, user, onLogout }: AppLayoutProps) {
                 </div>
                 <div className="hidden sm:block">
                   <p className="text-sm font-semibold text-slate-900">{user.name}</p>
-                  <p className="text-xs text-slate-500">{user.role === "superadmin" ? "Administrator" : "Member"}</p>
+                  <p className="text-xs text-slate-500">{roleDescription}</p>
                 </div>
                 <ChevronDown className="h-4 w-4 text-slate-400" />
               </div>

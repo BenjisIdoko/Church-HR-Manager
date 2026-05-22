@@ -3,17 +3,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { ArrowLeft, Download, Calendar } from "lucide-react";
-import { mockWorkers, mockAttendanceRecords } from "../utils/mockData";
+import { ArrowLeft, Download } from "lucide-react";
+import { AttendanceRecord, Worker } from "../utils/mockData";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { exportToCSV } from "../utils/tableUtils";
 
-export function AttendanceDetailView() {
+interface AttendanceDetailViewProps {
+  workers: Worker[];
+  attendanceRecords: AttendanceRecord[];
+  loading?: boolean;
+}
+
+export function AttendanceDetailView({
+  workers,
+  attendanceRecords,
+  loading = false,
+}: AttendanceDetailViewProps) {
   const { workerId } = useParams();
   const navigate = useNavigate();
   
-  const worker = mockWorkers.find((w) => w.id === workerId);
-  const workerRecords = mockAttendanceRecords
+  const worker = workers.find((w) => w.id === workerId);
+  const workerRecords = attendanceRecords
     .filter((r) => r.workerId === workerId)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 30);
@@ -153,7 +163,7 @@ export function AttendanceDetailView() {
         <CardHeader>
           <CardTitle>Attendance Records</CardTitle>
           <CardDescription>
-            All attendance records for {worker.name}
+            {loading ? "Loading attendance history..." : `All attendance records for ${worker.name}`}
           </CardDescription>
         </CardHeader>
         <CardContent>

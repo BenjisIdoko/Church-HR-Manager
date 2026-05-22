@@ -84,6 +84,40 @@ if (!workerColumns.includes('external_id')) {
   db.exec('ALTER TABLE workers ADD COLUMN external_id TEXT');
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_workers_external_id ON workers(external_id)');
 }
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_workers_external_id ON workers(external_id)');
+db.exec(`
+  UPDATE workers
+  SET external_id = 'LEGACY-' || substr('000' || id, -3, 3)
+  WHERE external_id IS NULL OR trim(external_id) = ''
+`);
+
+const duplicateWorkers = db.prepare(`
+  SELECT
+    legacy.id AS legacy_id,
+    canonical.id AS canonical_id
+  FROM workers legacy
+  JOIN workers canonical
+    ON canonical.external_id NOT LIKE 'LEGACY-%'
+   AND legacy.external_id LIKE 'LEGACY-%'
+   AND lower(legacy.name) = lower(canonical.name)
+   AND lower(COALESCE(legacy.email, '')) = lower(COALESCE(canonical.email, ''))
+   AND lower(COALESCE(legacy.phone, '')) = lower(COALESCE(canonical.phone, ''))
+   AND lower(legacy.dept) = lower(canonical.dept)
+   AND lower(legacy.role) = lower(canonical.role)
+   AND lower(legacy.status) = lower(canonical.status)
+`).all();
+
+if (duplicateWorkers.length > 0) {
+  const removeDuplicateWorkers = db.transaction((pairs) => {
+    for (const pair of pairs) {
+      db.prepare('DELETE FROM attendance WHERE worker_id = ?').run(pair.legacy_id);
+      db.prepare('DELETE FROM absences WHERE worker_id = ?').run(pair.legacy_id);
+      db.prepare('DELETE FROM workers WHERE id = ?').run(pair.legacy_id);
+    }
+  });
+
+  removeDuplicateWorkers(duplicateWorkers);
+}
 
 // Prepared statements for common operations
 const statements = {
@@ -114,14 +148,14 @@ const statements = {
   `),
 
   getAllAttendance: db.prepare(`
-    SELECT a.*, w.name, w.dept
+    SELECT a.*, w.name, w.dept, w.external_id
     FROM attendance a
     JOIN workers w ON a.worker_id = w.id
     ORDER BY a.date DESC, a.service
   `),
 
   getAttendanceByDate: db.prepare(`
-    SELECT a.*, w.name, w.dept
+    SELECT a.*, w.name, w.dept, w.external_id
     FROM attendance a
     JOIN workers w ON a.worker_id = w.id
     WHERE a.date = ?
