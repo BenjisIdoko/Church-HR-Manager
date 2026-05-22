@@ -6,7 +6,7 @@ import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Download, Calendar, BarChart3, PieChart as PieChartIcon, FileJson } from "lucide-react";
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { AttendanceRecord } from "../utils/mockData";
+import { AttendanceRecord } from "../types/models";
 import { exportToCSV } from "../utils/tableUtils";
 
 const COLORS = ['hsl(142, 76%, 36%)', 'hsl(45, 93%, 47%)', 'hsl(0, 84%, 60%)'];

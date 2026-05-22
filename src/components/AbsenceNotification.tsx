@@ -77,7 +77,7 @@ export function AbsenceNotification() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2">
+        <Button className="gap-2 bg-[#dc5f3d] text-white shadow-sm hover:bg-[#c84f2f] focus-visible:ring-[#dc5f3d]">
           <AlertCircle className="h-4 w-4" />
           Report Absence
         </Button>

@@ -5,7 +5,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { Checkbox } from "./ui/checkbox";
-import { User } from "../utils/mockData";
+import { User } from "../types/models";
 import { loginUser } from "../utils/api";
 
 interface LoginFormProps {

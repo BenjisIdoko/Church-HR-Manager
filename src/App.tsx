@@ -14,7 +14,7 @@ import { Settings } from "./components/Settings";
 import { Toaster } from "./components/ui/sonner";
 import { Alert, AlertDescription } from "./components/ui/alert";
 import { fetchAttendance, fetchKpis, fetchWorkers, saveWorker } from "./utils/api";
-import { AttendanceRecord, User, Worker } from "./utils/mockData";
+import { AttendanceRecord, User, Worker } from "./types/models";
 
 interface UpdateHistoryEntry {
   workerId: string;

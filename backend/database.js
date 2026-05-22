@@ -2,7 +2,7 @@ const Database = require('better-sqlite3');
 const path = require('path');
 
 // Create database connection
-const dbPath = path.join(__dirname, 'church_hr.db');
+const dbPath = process.env.DB_PATH || path.join(__dirname, 'church_hr.db');
 const db = new Database(dbPath);
 
 // Enable foreign keys

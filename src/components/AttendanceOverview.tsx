@@ -6,7 +6,7 @@ import { Button } from "./ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Calendar, Filter, Eye, Download, ChevronUp, ChevronDown, RotateCcw } from "lucide-react";
-import { AttendanceRecord } from "../utils/mockData";
+import { AttendanceRecord } from "../types/models";
 import { useNavigate } from "react-router-dom";
 import { sortData, SortConfig, exportToCSV } from "../utils/tableUtils";
 

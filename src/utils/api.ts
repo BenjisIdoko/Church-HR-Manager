@@ -1,4 +1,4 @@
-import { AttendanceRecord, User, Worker } from "./mockData";
+import { AttendanceRecord, User, Worker } from "../types/models";
 
 interface ApiErrorPayload {
   message?: string;

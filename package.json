@@ -59,6 +59,8 @@
       },
       "scripts": {
           "dev": "vite",
-          "build": "vite build"
+          "build": "vite build",
+          "build:full": "npm --prefix backend install && npm run build",
+          "start": "npm --prefix backend start"
       }
   }

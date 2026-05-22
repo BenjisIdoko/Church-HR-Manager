@@ -3,7 +3,13 @@ const { statements } = require('./database');
 // Seed initial data
 const seedData = async () => {
   try {
-    console.log('Seeding database with initial data...');
+    if (process.env.LOAD_SAMPLE_DATA !== 'true') {
+      statements.updateKPIs.run(0, 0, 0);
+      console.log('Sample data loading skipped. Set LOAD_SAMPLE_DATA=true to seed demo records.');
+      return;
+    }
+
+    console.log('Seeding database with sample data...');
 
     // Insert sample workers
     const workers = [
@@ -80,7 +86,7 @@ const seedData = async () => {
       todayStats.absent
     );
 
-    console.log('Database seeded successfully!');
+    console.log('Sample database seeded successfully!');
 
   } catch (error) {
     console.error('Error seeding database:', error);

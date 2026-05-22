@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Download, Edit3, ChevronUp, ChevronDown, RotateCcw, Clock2 } from "lucide-react";
 import { toast } from "sonner@2.0.3";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
-import { Worker } from "../utils/mockData";
+import { Worker } from "../types/models";
 import { sortData, SortConfig, exportToCSV } from "../utils/tableUtils";
 
 interface UpdateHistoryEntry {

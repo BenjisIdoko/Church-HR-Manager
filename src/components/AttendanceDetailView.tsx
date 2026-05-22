@@ -4,7 +4,7 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { ArrowLeft, Download } from "lucide-react";
-import { AttendanceRecord, Worker } from "../utils/mockData";
+import { AttendanceRecord, Worker } from "../types/models";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { exportToCSV } from "../utils/tableUtils";
 

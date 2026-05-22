@@ -3,7 +3,7 @@ import { Button } from "./ui/button";
 import { Users, UserCheck, UserX, Upload, BarChart3 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { useNavigate } from "react-router-dom";
-import { AttendanceRecord, Worker } from "../utils/mockData";
+import { AttendanceRecord, Worker } from "../types/models";
 
 interface AdminDashboardProps {
   workers: Worker[];
