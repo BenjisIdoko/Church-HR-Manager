@@ -44,13 +44,21 @@ async function apiRequest<T>(input: string, init?: RequestInit): Promise<T> {
 }
 
 export async function loginUser(identifier: string, password: string): Promise<User> {
+  // Validate inputs before sending
+  if (!identifier || !identifier.trim()) {
+    throw new Error("Username or email is required");
+  }
+  if (!password) {
+    throw new Error("Password is required");
+  }
+
   const response = await apiRequest<LoginResponse>("/api/login", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      username: identifier,
+      identifier: identifier.trim(),
       password,
     }),
   });

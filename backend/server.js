@@ -191,16 +191,38 @@ function importAttendance(records) {
 
 // Auth (very simple prototype)
 app.post('/api/login', (req, res) => {
-  const { username, email, password } = req.body || {}
-  const identifier = String(username || email || '').trim().toLowerCase()
+  const { identifier, username, email, password } = req.body || {}
+  
+  // Validate inputs
+  if (!password) {
+    return res.status(400).json({ ok: false, message: 'Password is required' })
+  }
+  
+  // Support both new 'identifier' param and legacy 'username'/'email' params
+  const loginIdentifier = String(identifier || username || email || '').trim().toLowerCase()
+  
+  if (!loginIdentifier) {
+    return res.status(400).json({ ok: false, message: 'Username or email is required' })
+  }
 
   const matchedUser = demoUsers.find((user) => {
-    return (user.email.toLowerCase() === identifier || user.name.toLowerCase() === identifier) && user.password === password
-  })
+    const normalizedEmail = user.email.toLowerCase();
+    const normalizedName = user.name.toLowerCase();
+    const normalizedUsername = normalizedEmail.split("@")[0];
+    const nameParts = normalizedName.split(" ");
+
+    return (
+      (normalizedEmail === loginIdentifier ||
+        normalizedName === loginIdentifier ||
+        normalizedUsername === loginIdentifier ||
+        nameParts.includes(loginIdentifier)) &&
+      user.password === password
+    );
+  });
 
   if (matchedUser) {
-    const { password: _password, ...safeUser } = matchedUser
-    return res.json({ ok: true, user: safeUser })
+    const { password: _password, ...safeUser } = matchedUser;
+    return res.json({ ok: true, user: safeUser });
   }
 
   res.status(401).json({ ok: false, message: 'Invalid credentials' })
