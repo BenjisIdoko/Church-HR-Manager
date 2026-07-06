@@ -5,6 +5,12 @@ const { statements } = require('./database')
 const jibbleService = require('./jibbleService')
 
 const app = express()
+const DEFAULT_CHURCH_LOCATION = {
+  latitude: 9.2109125,
+  longitude: 7.395359375,
+}
+const DEFAULT_GEOFENCE_RADIUS_METERS = 200
+const MAX_GEOFENCE_RADIUS_METERS = 10000
 const demoUsers = [
   {
     id: 'U000',
@@ -154,6 +160,100 @@ function findOrCreateWorker(externalId, name, dept) {
     'Active'
   );
   return result.lastInsertRowid;
+}
+
+function getSettingValue(key, fallback = null) {
+  try {
+    const row = statements.getSetting.get(key);
+    if (!row || row.value === undefined || row.value === null) {
+      return fallback;
+    }
+    return row.value;
+  } catch (error) {
+    console.error(`Error fetching setting ${key}:`, error);
+    return fallback;
+  }
+}
+
+function getAllSettingsObject() {
+  const rows = statements.getAllSettings.all();
+  return rows.reduce((acc, row) => {
+    acc[row.key] = row.value;
+    return acc;
+  }, {});
+}
+
+function toNumber(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function isValidLatitude(value) {
+  return Number.isFinite(value) && value >= -90 && value <= 90;
+}
+
+function isValidLongitude(value) {
+  return Number.isFinite(value) && value >= -180 && value <= 180;
+}
+
+function isValidRadius(value) {
+  return Number.isFinite(value) && value > 0 && value <= MAX_GEOFENCE_RADIUS_METERS;
+}
+
+function validateClockInSetting(key, value) {
+  if (key === 'clock_in_portal_enabled' || key === 'device_import_enabled') {
+    return value === 'true' || value === 'false' ? null : `${key} must be true or false`;
+  }
+
+  if (key === 'church_latitude') {
+    return isValidLatitude(Number(value)) ? null : 'Church latitude must be between -90 and 90';
+  }
+
+  if (key === 'church_longitude') {
+    return isValidLongitude(Number(value)) ? null : 'Church longitude must be between -180 and 180';
+  }
+
+  if (key === 'geofence_radius_meters') {
+    return isValidRadius(Number(value))
+      ? null
+      : `Geofence radius must be greater than 0 and no more than ${MAX_GEOFENCE_RADIUS_METERS} meters`;
+  }
+
+  if (value.length > 500) {
+    return `${key} is too long`;
+  }
+
+  return null;
+}
+
+function calculateDistanceMeters(pointA, pointB) {
+  const earthRadiusMeters = 6371000;
+  const toRadians = (degrees) => (degrees * Math.PI) / 180;
+  const deltaLatitude = toRadians(pointB.latitude - pointA.latitude);
+  const deltaLongitude = toRadians(pointB.longitude - pointA.longitude);
+  const latitudeA = toRadians(pointA.latitude);
+  const latitudeB = toRadians(pointB.latitude);
+
+  const haversine =
+    Math.sin(deltaLatitude / 2) ** 2 +
+    Math.cos(latitudeA) * Math.cos(latitudeB) * Math.sin(deltaLongitude / 2) ** 2;
+
+  return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+}
+
+function getClockInConfig() {
+  const latitude = toNumber(getSettingValue('church_latitude', DEFAULT_CHURCH_LOCATION.latitude), DEFAULT_CHURCH_LOCATION.latitude);
+  const longitude = toNumber(getSettingValue('church_longitude', DEFAULT_CHURCH_LOCATION.longitude), DEFAULT_CHURCH_LOCATION.longitude);
+  const radiusMeters = toNumber(getSettingValue('geofence_radius_meters', DEFAULT_GEOFENCE_RADIUS_METERS), DEFAULT_GEOFENCE_RADIUS_METERS);
+
+  return {
+    enabled: getSettingValue('clock_in_portal_enabled', 'true') === 'true',
+    churchLocation: {
+      latitude: isValidLatitude(latitude) ? latitude : DEFAULT_CHURCH_LOCATION.latitude,
+      longitude: isValidLongitude(longitude) ? longitude : DEFAULT_CHURCH_LOCATION.longitude,
+    },
+    radiusMeters: isValidRadius(radiusMeters) ? radiusMeters : DEFAULT_GEOFENCE_RADIUS_METERS,
+  };
 }
 
 function importWorkers(records) {
@@ -438,6 +538,231 @@ app.get('/api/absences', (req, res) => {
     res.status(500).json({ error: 'Failed to fetch absences' });
   }
 })
+
+// Clock-In System Endpoints
+app.post('/api/clock-in', (req, res) => {
+  const { workerId, type, latitude, longitude, notes } = req.body || {};
+
+  // Validate required fields
+  if (!workerId || !type || latitude === undefined || longitude === undefined) {
+    return res.status(400).json({ ok: false, message: 'Worker ID, type, latitude, and longitude are required' });
+  }
+
+  if (!['clock-in', 'clock-out'].includes(type)) {
+    return res.status(400).json({ ok: false, message: 'Type must be "clock-in" or "clock-out"' });
+  }
+
+  const parsedLatitude = Number(latitude);
+  const parsedLongitude = Number(longitude);
+
+  if (!Number.isFinite(parsedLatitude) || !Number.isFinite(parsedLongitude)) {
+    return res.status(400).json({ ok: false, message: 'Latitude and longitude must be valid numbers' });
+  }
+
+  try {
+    const config = getClockInConfig();
+    if (!config.enabled) {
+      return res.status(403).json({ ok: false, message: 'Clock-in portal is currently disabled' });
+    }
+
+    const distanceFromChurch = calculateDistanceMeters(
+      { latitude: parsedLatitude, longitude: parsedLongitude },
+      config.churchLocation,
+    );
+    const isWithinGeofence = distanceFromChurch <= config.radiusMeters;
+
+    if (!isWithinGeofence) {
+      return res.status(400).json({
+        ok: false,
+        message: `You must be within ${Math.round(config.radiusMeters)} meters of the church to clock in`,
+        distanceFromChurch,
+      });
+    }
+
+    // Find worker
+    const worker = statements.getWorkerByExternalId.get(workerId);
+    if (!worker) {
+      return res.status(404).json({ ok: false, message: 'Worker not found' });
+    }
+
+    // Insert clock-in record
+    const result = statements.insertClockIn.run(
+      worker.id,
+      new Date().toISOString(),
+      type,
+      parsedLatitude,
+      parsedLongitude,
+      distanceFromChurch,
+      1,
+      'app',
+      null,
+      notes || null
+    );
+
+    res.json({
+      ok: true,
+      id: result.lastInsertRowid,
+      message: `Successfully clocked ${type === 'clock-in' ? 'in' : 'out'}`,
+      clockInRecord: {
+        id: result.lastInsertRowid,
+        workerId: worker.external_id,
+        workerName: worker.name,
+        type,
+        timestamp: new Date().toISOString(),
+        distance: distanceFromChurch,
+        isWithinGeofence: true,
+      }
+    });
+  } catch (error) {
+    console.error('Error recording clock-in:', error);
+    res.status(500).json({ ok: false, message: 'Failed to record clock-in' });
+  }
+});
+
+// Get clock-in records for a specific date
+app.get('/api/clock-in/date/:date', (req, res) => {
+  const { date } = req.params;
+
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ ok: false, message: 'Invalid date format (YYYY-MM-DD)' });
+  }
+
+  try {
+    const records = statements.getClockInsByDate.all(date);
+    res.json(records || []);
+  } catch (error) {
+    console.error('Error fetching clock-in records:', error);
+    res.status(500).json({ error: 'Failed to fetch clock-in records' });
+  }
+});
+
+// Get worker's today clock-in status
+app.get('/api/clock-in/status/:workerId', (req, res) => {
+  const { workerId } = req.params;
+
+  try {
+    const worker = statements.getWorkerByExternalId.get(workerId);
+    if (!worker) {
+      return res.status(404).json({ ok: false, message: 'Worker not found' });
+    }
+
+    const records = statements.getWorkerTodayClockIns.all(worker.id) || [];
+    const isClockedIn = records.length % 2 === 1; // Odd number means currently clocked in
+    const lastRecord = records.length > 0 ? records[records.length - 1] : null;
+
+    res.json({
+      workerId,
+      workerName: worker.name,
+      isClockedIn,
+      todayRecords: records,
+      lastRecord,
+    });
+  } catch (error) {
+    console.error('Error fetching worker clock-in status:', error);
+    res.status(500).json({ error: 'Failed to fetch clock-in status' });
+  }
+});
+
+app.get('/api/clock-in/settings', (req, res) => {
+  try {
+    const settings = getAllSettingsObject();
+    res.json({ ok: true, settings });
+  } catch (error) {
+    console.error('Error fetching clock-in settings:', error);
+    res.status(500).json({ ok: false, message: 'Failed to fetch clock-in settings' });
+  }
+});
+
+app.put('/api/clock-in/settings', (req, res) => {
+  const allowedKeys = [
+    'clock_in_portal_enabled',
+    'clock_in_portal_name',
+    'clock_in_portal_description',
+    'church_latitude',
+    'church_longitude',
+    'geofence_radius_meters',
+    'device_import_enabled',
+  ];
+
+  const payload = req.body || {};
+
+  try {
+    for (const key of allowedKeys) {
+      if (Object.prototype.hasOwnProperty.call(payload, key)) {
+        const value = String(payload[key] ?? '').trim();
+        if (value.length === 0) {
+          continue;
+        }
+
+        const validationError = validateClockInSetting(key, value);
+        if (validationError) {
+          return res.status(400).json({ ok: false, message: validationError });
+        }
+
+        statements.upsertSetting.run(key, value);
+      }
+    }
+
+    const settings = getAllSettingsObject();
+    res.json({ ok: true, settings, message: 'Clock-in settings updated successfully' });
+  } catch (error) {
+    console.error('Error updating clock-in settings:', error);
+    res.status(500).json({ ok: false, message: 'Failed to update clock-in settings' });
+  }
+});
+
+// Import clock-in data from traditional device (CSV format)
+app.post('/api/clock-in/import-device', (req, res) => {
+  const { records } = req.body || {};
+
+  if (!Array.isArray(records) || records.length === 0) {
+    return res.status(400).json({ ok: false, message: 'No records provided' });
+  }
+
+  try {
+    let importedCount = 0;
+    const { churchLocation } = getClockInConfig();
+
+    for (const record of records) {
+      const { workerId, timestamp, type, deviceId } = record;
+
+      // Validate record
+      if (!workerId || !timestamp || !type) continue;
+
+      try {
+        const worker = statements.getWorkerByExternalId.get(workerId);
+        if (!worker) continue;
+
+        statements.insertClockIn.run(
+          worker.id,
+          timestamp,
+          type,
+          churchLocation.latitude,
+          churchLocation.longitude,
+          0, // Distance = 0 (assumed at church)
+          1, // Is within geofence
+          'device',
+          deviceId || null,
+          null
+        );
+
+        importedCount++;
+      } catch (err) {
+        console.error(`Failed to import record for worker ${workerId}:`, err);
+        continue;
+      }
+    }
+
+    res.json({
+      ok: true,
+      message: `Imported ${importedCount} clock-in records from device`,
+      imported: importedCount,
+    });
+  } catch (error) {
+    console.error('Error importing device clock-in records:', error);
+    res.status(500).json({ ok: false, message: 'Failed to import device records' });
+  }
+});
 
 // Simple search and filter endpoints
 app.get('/api/workers/search', (req, res) => {

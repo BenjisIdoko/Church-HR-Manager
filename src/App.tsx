@@ -1,11 +1,12 @@
-import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { LoginForm } from "./components/LoginForm";
-import { ImageWithFallback } from "./components/figma/ImageWithFallback";
 import { AppLayout } from "./components/AppLayout";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { MemberDirectory } from "./components/MemberDirectory";
 import { MemberDashboard } from "./components/MemberDashboard";
+import { ClockInScreen } from "./components/ClockInScreen";
+import { ClockInManagement } from "./components/ClockInManagement";
 import { DataImportScreen } from "./components/DataImportScreen";
 import { AttendanceOverview } from "./components/AttendanceOverview";
 import { AttendanceDetailView } from "./components/AttendanceDetailView";
@@ -21,28 +22,6 @@ interface UpdateHistoryEntry {
   workerName: string;
   timestamp: string;
   changes: string;
-}
-
-interface LoginPageProps {
-  onLogin: (user: User) => void;
-}
-
-function LoginPage({ onLogin }: LoginPageProps) {
-  return (
-    <div className="relative min-h-screen w-full flex items-center justify-center p-4 bg-slate-100">
-      <div className="absolute inset-0 z-0">
-        <ImageWithFallback
-          src="https://images.unsplash.com/photo-1640963269654-3fe248c5fba6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGdyYWRpZW50JTIwYmFja2dyb3VuZHxlbnwxfHx8fDE3NjA0MjI3OTJ8MA&ixlib=rb-4.1.0&q=80&w=1080"
-          alt="Background"
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" />
-      </div>
-      <div className="relative z-10 w-full max-w-md px-4">
-        <LoginForm onLogin={onLogin} />
-      </div>
-    </div>
-  );
 }
 
 export default function App() {
@@ -181,7 +160,7 @@ export default function App() {
                 replace
               />
             ) : (
-              <LoginPage onLogin={handleLogin} />
+              <LoginForm onLogin={handleLogin} workers={workers} />
             )
           }
         />
@@ -291,6 +270,18 @@ export default function App() {
           }
         />
         <Route
+          path="/clock-in-portal"
+          element={
+            currentUser?.role === "superadmin" ? (
+              <AppLayout user={currentUser} onLogout={handleLogout}>
+                {renderPage(<ClockInManagement />)}
+              </AppLayout>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
           path="/member"
           element={
             currentUser?.role === "member" ? (
@@ -302,6 +293,18 @@ export default function App() {
                     onUpdateProfile={handleUpdateProfile}
                   />,
                 )}
+              </AppLayout>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/clock-in"
+          element={
+            currentUser?.role === "member" ? (
+              <AppLayout user={currentUser} onLogout={handleLogout}>
+                {renderPage(<ClockInScreen user={currentUser} />)}
               </AppLayout>
             ) : (
               <Navigate to="/" replace />

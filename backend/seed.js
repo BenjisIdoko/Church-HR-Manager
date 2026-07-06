@@ -1,4 +1,4 @@
-const { statements } = require('./database');
+const { db, statements } = require('./database');
 
 // Seed initial data
 const seedData = async () => {
@@ -10,6 +10,28 @@ const seedData = async () => {
     }
 
     console.log('Seeding database with sample data...');
+
+    db.exec(`
+      DELETE FROM clock_in_records;
+      DELETE FROM attendance;
+      DELETE FROM absences;
+      DELETE FROM workers;
+      DELETE FROM sqlite_sequence WHERE name IN ('workers', 'attendance', 'absences', 'clock_in_records');
+    `);
+
+    const demoSettings = {
+      clock_in_portal_enabled: 'true',
+      clock_in_portal_name: 'Church Clock-In Portal',
+      clock_in_portal_description: 'Use this portal to clock in and out when on church grounds.',
+      church_latitude: '9.2109125',
+      church_longitude: '7.395359375',
+      geofence_radius_meters: '200',
+      device_import_enabled: 'true',
+    };
+
+    for (const [key, value] of Object.entries(demoSettings)) {
+      statements.upsertSetting.run(key, value);
+    }
 
     // Insert sample workers
     const workers = [

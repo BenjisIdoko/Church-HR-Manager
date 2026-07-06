@@ -7,6 +7,7 @@ import {
   ClipboardList,
   BarChart3,
   Settings,
+  Clock,
   LogOut,
   Menu,
   X,
@@ -43,11 +44,13 @@ const adminNavItems = [
   { path: "/workers", icon: Users, label: "Workers Directory" },
   { path: "/attendance", icon: ClipboardList, label: "Attendance" },
   { path: "/reports", icon: BarChart3, label: "Reports" },
+  { path: "/clock-in-portal", icon: Clock, label: "Clock-In Portal" },
   { path: "/settings", icon: Settings, label: "Settings" },
 ];
 
 const memberNavItems = [
   { path: "/member", icon: Users, label: "My Profile" },
+  { path: "/clock-in", icon: Clock, label: "Clock In" },
 ];
 
 const managerNavItems = [

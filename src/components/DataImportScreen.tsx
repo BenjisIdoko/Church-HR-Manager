@@ -6,7 +6,8 @@ import { Upload, FileSpreadsheet, CheckCircle, XCircle, AlertCircle, Trash2 } fr
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Badge } from "./ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { processFileUpload, CSVParseResult, ValidationError, ValidationWarning } from "../utils/csvParser";
+import { processFileUpload, parseCSVText, CSVParseResult, ValidationError, ValidationWarning } from "../utils/csvParser";
+import { DeviceImportRequest, importDeviceClockInRecords } from "../utils/api";
 
 type ImportStatus = "idle" | "validating" | "success" | "error";
 type ImportType = "attendance" | "workers";
@@ -28,6 +29,8 @@ export function DataImportScreen({ onImportComplete }: DataImportScreenProps) {
   const [jibbleLoading, setJibbleLoading] = useState(false);
   const [jibbleMessage, setJibbleMessage] = useState<string | null>(null);
   const [jibbleError, setJibbleError] = useState<string | null>(null);
+  const [deviceImportMessage, setDeviceImportMessage] = useState<string | null>(null);
+  const [deviceImportError, setDeviceImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -139,6 +142,54 @@ export function DataImportScreen({ onImportComplete }: DataImportScreenProps) {
       setJibbleError(error instanceof Error ? error.message : 'Unknown error');
     } finally {
       setJibbleLoading(false);
+    }
+  };
+
+  const handleDeviceClockInImport = async (file: File) => {
+    setDeviceImportMessage(null);
+    setDeviceImportError(null);
+
+    try {
+      const text = await file.text();
+      const parsedRows = parseCSVText(text);
+
+      if (parsedRows.length === 0) {
+        throw new Error('CSV file must contain header and at least one record');
+      }
+
+      const records: DeviceImportRequest["records"] = [];
+      for (const row of parsedRows) {
+        const workerId = row["Worker ID"] || row.workerId || row.worker_id || "";
+        const timestamp = row.Timestamp || row.timestamp || row.Date || row.date || "";
+        const rawType = row.Type || row.type || "";
+        const normalizedType = rawType.trim().toLowerCase();
+        const type =
+          normalizedType === "clock-in" || normalizedType === "in"
+            ? "clock-in"
+            : normalizedType === "clock-out" || normalizedType === "out"
+            ? "clock-out"
+            : null;
+
+        if (!type) continue;
+        if (!workerId.trim() || !timestamp.trim()) continue;
+
+        records.push({
+          workerId: workerId.trim(),
+          timestamp: timestamp.trim(),
+          type,
+          deviceId: row["Device ID"] || row.deviceId || row.device_id || undefined,
+        });
+      }
+
+      if (records.length === 0) {
+        throw new Error('No valid records found in CSV');
+      }
+
+      const result = await importDeviceClockInRecords({ records });
+      setDeviceImportMessage(`${result.message} Successfully imported ${result.imported} records.`);
+      await onImportComplete?.();
+    } catch (error) {
+      setDeviceImportError(error instanceof Error ? error.message : 'Unknown error');
     }
   };
 
@@ -274,6 +325,63 @@ export function DataImportScreen({ onImportComplete }: DataImportScreenProps) {
                 </Button>
               </div>
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Device Clock-In Import */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Import Clock-In Records from Device</CardTitle>
+          <CardDescription>
+            Import attendance data from traditional clock-in devices using CSV format
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-950">
+            <p className="text-sm font-medium mb-2">Expected CSV Format:</p>
+            <code className="text-xs block whitespace-pre-wrap font-mono p-2 bg-white dark:bg-slate-900 rounded border">
+{`Worker ID,Timestamp,Type
+W001,2024-05-26T09:00:00Z,clock-in
+W001,2024-05-26T17:30:00Z,clock-out
+W002,2024-05-26T08:45:00Z,clock-in`}
+            </code>
+            <p className="text-xs text-muted-foreground mt-2">
+              • Worker ID: Must match existing worker records
+              • Timestamp: ISO 8601 format (e.g., 2024-05-26T09:00:00Z)
+              • Type: Either "clock-in" or "clock-out"
+            </p>
+          </div>
+
+          <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer">
+            <input
+              type="file"
+              accept=".csv"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  handleDeviceClockInImport(file);
+                }
+              }}
+              className="hidden"
+              id="device-clock-in-upload"
+            />
+            <label htmlFor="device-clock-in-upload" className="cursor-pointer">
+              <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <p className="mb-2">Click to upload CSV file</p>
+              <p className="text-sm text-muted-foreground">CSV format only (MAX. 10MB)</p>
+            </label>
+          </div>
+
+          {deviceImportMessage && (
+            <Alert>
+              <AlertDescription>{deviceImportMessage}</AlertDescription>
+            </Alert>
+          )}
+          {deviceImportError && (
+            <Alert variant="destructive">
+              <AlertDescription>{deviceImportError}</AlertDescription>
+            </Alert>
           )}
         </CardContent>
       </Card>

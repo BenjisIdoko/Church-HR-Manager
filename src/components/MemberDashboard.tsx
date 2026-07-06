@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -29,11 +30,16 @@ export function MemberDashboard({ user, worker, onUpdateProfile }: MemberDashboa
 
   return (
     <div className="space-y-6 max-w-4xl">
-      <div>
-        <h1>Member Profile</h1>
-        <p className="text-muted-foreground">
-          Update your personal details. Changes are saved and cannot delete member records.
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1>Member Profile</h1>
+          <p className="text-muted-foreground">
+            Update your personal details. Changes are saved and cannot delete member records.
+          </p>
+        </div>
+        <Button asChild variant="secondary">
+          <Link to="/clock-in">Clock In Now</Link>
+        </Button>
       </div>
 
       <Card className="border-0 shadow-sm">
