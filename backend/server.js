@@ -5,8 +5,8 @@ const { statements } = require('./database')
 
 const app = express()
 const DEFAULT_CHURCH_LOCATION = {
-  latitude: 9.2109125,
-  longitude: 7.395359375,
+  latitude: 9.0765,
+  longitude: 7.3986,
 }
 const DEFAULT_GEOFENCE_RADIUS_METERS = 200
 const MAX_GEOFENCE_RADIUS_METERS = 10000

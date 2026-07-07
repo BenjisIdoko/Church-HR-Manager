@@ -5,9 +5,9 @@
 
 // Default church / auditorium location. Admins can override this in Clock-In Management.
 export const CHURCH_LOCATION = {
-  latitude: 9.2109125,
-  longitude: 7.395359375,
-  name: "696W+949, Bridge, Ushapa 901101, Federal Capital Territory, Nigeria",
+  latitude: 9.0765,
+  longitude: 7.3986,
+  name: "696W+VG, Ushapa 901101, Federal Capital Territory, Nigeria",
 };
 
 // Geofence radius in meters (allowed radius)

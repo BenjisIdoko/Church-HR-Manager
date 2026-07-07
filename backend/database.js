@@ -91,8 +91,8 @@ INSERT OR IGNORE INTO kpis (id, total_workers, attendance_today, absent_today) V
 INSERT OR IGNORE INTO settings (key, value) VALUES ('clock_in_portal_enabled', 'true');
 INSERT OR IGNORE INTO settings (key, value) VALUES ('clock_in_portal_name', 'Church Clock-In Portal');
 INSERT OR IGNORE INTO settings (key, value) VALUES ('clock_in_portal_description', 'Use this portal to clock in and out when on church grounds.');
-INSERT OR IGNORE INTO settings (key, value) VALUES ('church_latitude', '9.2109125');
-INSERT OR IGNORE INTO settings (key, value) VALUES ('church_longitude', '7.395359375');
+INSERT OR IGNORE INTO settings (key, value) VALUES ('church_latitude', '9.0765');
+INSERT OR IGNORE INTO settings (key, value) VALUES ('church_longitude', '7.3986');
 INSERT OR IGNORE INTO settings (key, value) VALUES ('geofence_radius_meters', '200');
 INSERT OR IGNORE INTO settings (key, value) VALUES ('device_import_enabled', 'true');
 

@@ -23,8 +23,8 @@ const seedData = async () => {
       clock_in_portal_enabled: 'true',
       clock_in_portal_name: 'Church Clock-In Portal',
       clock_in_portal_description: 'Use this portal to clock in and out when on church grounds.',
-      church_latitude: '9.2109125',
-      church_longitude: '7.395359375',
+      church_latitude: '9.0765',
+      church_longitude: '7.3986',
       geofence_radius_meters: '200',
       device_import_enabled: 'true',
     };
