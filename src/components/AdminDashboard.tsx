@@ -169,7 +169,7 @@ export function AdminDashboard({
             </CardHeader>
             <CardContent className="space-y-5 px-8 py-8">
               <div className="space-y-4">
-                <p className="font-medium text-white">Attendance synced from Jibble</p>
+                <p className="font-medium text-white">Attendance Overview</p>
                 <p className="text-sm leading-6 text-slate-300">
                   {loading
                     ? "Refreshing attendance data from the database."

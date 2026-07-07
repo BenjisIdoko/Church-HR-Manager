@@ -5,7 +5,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import { User as UserIcon, Save, ShieldCheck } from "lucide-react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { User, Worker } from "../types/models";
 
 interface MemberDashboardProps {

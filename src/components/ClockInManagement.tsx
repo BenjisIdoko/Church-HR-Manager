@@ -8,7 +8,7 @@ import { Switch } from "./ui/switch";
 import { Separator } from "./ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { Clock, MapPin, Database } from "lucide-react";
 import { getClockInSettings, updateClockInSettings, getClockInsByDate, ClockInSettings } from "../utils/api";
 import { formatDistance, getCurrentLocation } from "../utils/clockInService";

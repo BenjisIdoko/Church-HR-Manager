@@ -410,7 +410,7 @@ export function LoginForm({ workers, onLogin }: LoginFormProps) {
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
                       <label className="block text-xs uppercase font-bold text-slate-400 tracking-wider">Passcode Key</label>
-                      <span className="text-xs text-slate-400 font-medium font-mono">Use passcode "admin123"</span>
+                      <span className="text-xs text-slate-400 font-medium font-mono">Use passcode "Admin@123"</span>
                     </div>
                     <div className="relative mt-1">
                       <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-500 pointer-events-none">

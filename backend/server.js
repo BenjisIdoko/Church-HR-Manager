@@ -2,7 +2,6 @@ const express = require('express')
 const cors = require('cors')
 const path = require('path')
 const { statements } = require('./database')
-const jibbleService = require('./jibbleService')
 
 const app = express()
 const DEFAULT_CHURCH_LOCATION = {
@@ -440,56 +439,6 @@ app.post('/api/import', (req, res) => {
   } catch (error) {
     console.error('Error processing import:', error);
     res.status(500).json({ ok: false, message: 'Failed to process import' });
-  }
-})
-
-app.post('/api/jibble/import', async (req, res) => {
-  const { startDate, endDate } = req.body || {}
-  const today = new Date().toISOString().split('T')[0]
-  const start = String(startDate || today).trim()
-  const end = String(endDate || start).trim()
-
-  if (!start || !end) {
-    return res.status(400).json({ ok: false, message: 'startDate and endDate are required' })
-  }
-
-  try {
-    const records = await jibbleService.getJibbleAttendance(start, end)
-
-    if (!Array.isArray(records) || records.length === 0) {
-      return res.json({
-        ok: true,
-        imported: 0,
-        message: 'No Jibble attendance records found for the selected range.',
-      })
-    }
-
-    const mappedRecords = records.map((record) => ({
-      'Worker ID': record.employeeId,
-      'Worker Name': record.employeeName,
-      'Department': 'Jibble',
-      'Service': 'Jibble Attendance',
-      'Status': record.status,
-      'Date': record.date,
-    }))
-
-    importAttendance(mappedRecords)
-    updateKPIs()
-    const kpis = statements.getKPIs.get()
-
-    return res.json({
-      ok: true,
-      imported: mappedRecords.length,
-      lastSync: kpis.last_sync,
-      kpis: {
-        totalWorkers: kpis.total_workers,
-        attendanceToday: kpis.attendance_today,
-        absent: kpis.absent_today,
-      }
-    })
-  } catch (error) {
-    console.error('Error importing from Jibble:', error)
-    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : 'Failed to import from Jibble' })
   }
 })
 

@@ -24,11 +24,6 @@ export function DataImportScreen({ onImportComplete }: DataImportScreenProps) {
   const [expandedErrors, setExpandedErrors] = useState<Set<number>>(new Set());
   const [expandedWarnings, setExpandedWarnings] = useState<Set<number>>(new Set());
   const [importing, setImporting] = useState(false);
-  const [jibbleStartDate, setJibbleStartDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [jibbleEndDate, setJibbleEndDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [jibbleLoading, setJibbleLoading] = useState(false);
-  const [jibbleMessage, setJibbleMessage] = useState<string | null>(null);
-  const [jibbleError, setJibbleError] = useState<string | null>(null);
   const [deviceImportMessage, setDeviceImportMessage] = useState<string | null>(null);
   const [deviceImportError, setDeviceImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -108,40 +103,6 @@ export function DataImportScreen({ onImportComplete }: DataImportScreenProps) {
       alert(`Import error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setImporting(false);
-    }
-  };
-
-  const handleImportFromJibble = async () => {
-    setJibbleMessage(null);
-    setJibbleError(null);
-    setJibbleLoading(true);
-
-    try {
-      const response = await fetch('/api/jibble/import', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          startDate: jibbleStartDate,
-          endDate: jibbleEndDate,
-        }),
-      });
-
-      const result = await response.json();
-      if (!response.ok || result.ok === false) {
-        throw new Error(result.message || 'Jibble import failed');
-      }
-
-      setJibbleMessage(result.message || `Imported ${result.imported} attendance records from Jibble.`);
-      if (result.imported > 0) {
-        await onImportComplete?.();
-        handleReset();
-      }
-    } catch (error) {
-      setJibbleError(error instanceof Error ? error.message : 'Unknown error');
-    } finally {
-      setJibbleLoading(false);
     }
   };
 
@@ -383,60 +344,6 @@ W002,2024-05-26T08:45:00Z,clock-in`}
               <AlertDescription>{deviceImportError}</AlertDescription>
             </Alert>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Jibble Import */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Import from Jibble</CardTitle>
-          <CardDescription>
-            Sync attendance directly from Jibble into the Church HR database.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 mb-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Start Date</label>
-              <input
-                type="date"
-                value={jibbleStartDate}
-                onChange={(e) => setJibbleStartDate(e.target.value)}
-                className="w-full rounded border border-slate-200 px-3 py-2 shadow-sm focus:border-primary focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">End Date</label>
-              <input
-                type="date"
-                value={jibbleEndDate}
-                onChange={(e) => setJibbleEndDate(e.target.value)}
-                className="w-full rounded border border-slate-200 px-3 py-2 shadow-sm focus:border-primary focus:outline-none"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <Button
-              onClick={handleImportFromJibble}
-              disabled={jibbleLoading}
-            >
-              {jibbleLoading ? 'Importing from Jibble...' : 'Import Attendance from Jibble'}
-            </Button>
-            {jibbleMessage && (
-              <Alert>
-                <AlertDescription>{jibbleMessage}</AlertDescription>
-              </Alert>
-            )}
-            {jibbleError && (
-              <Alert variant="destructive">
-                <AlertDescription>{jibbleError}</AlertDescription>
-              </Alert>
-            )}
-            <p className="text-sm text-muted-foreground">
-              This will fetch attendance from Jibble for the selected date range and store it in the local database.
-            </p>
-          </div>
         </CardContent>
       </Card>
 
