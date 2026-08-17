@@ -44,6 +44,44 @@
   }
 }
 
+/* Soft Ambient Gradient Design System (Inspired by Planning Center Modern Evolution) */
+
+.gradient-header {
+  background: linear-gradient(135deg, rgba(251, 249, 245, 0.95) 0%, rgba(251, 238, 232, 0.6) 50%, rgba(255, 255, 255, 0.95) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.gradient-brand-icon {
+  background: linear-gradient(135deg, #d96b43 0%, #c85a32 50%, #ab4622 100%);
+  box-shadow: 0 4px 14px rgba(200, 90, 50, 0.3);
+}
+
+.gradient-nav-active {
+  background: linear-gradient(135deg, #c85a32 0%, #da693e 100%);
+  box-shadow: 0 4px 12px rgba(200, 90, 50, 0.25);
+}
+
+.gradient-hero-card {
+  background: linear-gradient(135deg, #ffffff 0%, #fcfaf6 50%, #fbeee8 100%);
+  border: 1px solid #e7e2d8;
+  box-shadow: 0 4px 20px -2px rgba(200, 90, 50, 0.05);
+}
+
+.gradient-banner-volunteers {
+  background: linear-gradient(135deg, rgba(251, 238, 232, 0.7) 0%, rgba(251, 249, 245, 0.9) 60%, rgba(254, 243, 199, 0.4) 100%);
+}
+
+.gradient-banner-analytics {
+  background: linear-gradient(135deg, rgba(238, 242, 255, 0.8) 0%, rgba(251, 249, 245, 0.9) 60%, rgba(224, 231, 255, 0.5) 100%);
+}
+
+.gradient-brand-badge {
+  background: linear-gradient(135deg, #fbeee8 0%, rgba(252, 211, 77, 0.2) 100%);
+  color: #9a3412;
+  border: 1px solid rgba(200, 90, 50, 0.15);
+}
+
 /* Warm Linen Panel Elevation */
 .warm-card {
   background-color: #ffffff;
@@ -58,20 +96,4 @@
 .warm-card-hover:hover {
   border-color: #d6cebf;
   box-shadow: 0 8px 24px -4px rgba(44, 39, 32, 0.08);
-  transform: translateY(-1px);
 }
-
-/* Custom Scrollbars */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #d6cebf;
-  border-radius: 9999px;
-}
-
-

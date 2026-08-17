@@ -114,7 +114,7 @@ export function AdminDashboard({
   return (
     <div className="space-y-8">
       {/* Header Banner */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white border border-[#e7e2d8] p-6 rounded-2xl shadow-2xs">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between gradient-hero-card p-6 rounded-2xl shadow-2xs">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight text-[#1c1917]">Ministry & Care Overview</h1>

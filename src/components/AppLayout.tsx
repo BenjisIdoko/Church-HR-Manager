@@ -146,7 +146,7 @@ export function AppLayout({ children, user, workers = [], onLogout }: AppLayoutP
                     <div
                       className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all ${
                         isActive
-                          ? "bg-[#c85a32] text-white shadow-sm font-semibold"
+                          ? "gradient-nav-active text-white font-semibold shadow-xs"
                           : "text-[#57534e] hover:bg-[#f4f1ea] hover:text-[#1c1917]"
                       }`}
                     >
@@ -229,7 +229,7 @@ export function AppLayout({ children, user, workers = [], onLogout }: AppLayoutP
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="border-b border-[#e7e2d8] bg-white/90 backdrop-blur-md px-4 sm:px-6 py-3 sticky top-0 z-10">
+        <header className="border-b border-[#e7e2d8]/80 gradient-header px-4 sm:px-6 py-3 sticky top-0 z-10 shadow-2xs">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 flex-1 max-w-xl">
               <Button

@@ -252,10 +252,10 @@ export function MemberDirectory({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between gradient-hero-card p-6 rounded-2xl shadow-2xs">
         <div>
-          <h1>{pageTitle}</h1>
-          <p className="text-muted-foreground">{pageDescription}</p>
+          <h1 className="text-2xl font-bold tracking-tight text-[#1c1917]">{pageTitle}</h1>
+          <p className="text-xs text-[#78716c] mt-1">{pageDescription}</p>
         </div>
         <div className="flex gap-2">
           {hasActiveFilters && (
