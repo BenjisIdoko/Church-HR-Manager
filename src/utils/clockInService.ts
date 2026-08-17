@@ -13,9 +13,35 @@ export const CHURCH_LOCATION = {
 // Geofence radius in meters (allowed radius)
 export const GEOFENCE_RADIUS_METERS = 200;
 
-// Service clocking tolerances
+// Service schedule constants & helpers (Thursday & Sunday services)
 export const SERVICE_START_TIME = "09:00"; // formatted HH:MM
 export const LATE_ARRIVAL_GRACE_MINUTES = 15; // minutes after service start considered 'on time'
+export const SERVICE_DAYS_LABEL = "Thursdays & Sundays";
+
+/**
+ * Returns true if the given date falls on a service day (Thursday = 4, Sunday = 0).
+ */
+export function isServiceDay(date: Date = new Date()): boolean {
+  const day = date.getDay();
+  return day === 0 || day === 4;
+}
+
+/**
+ * Returns details about the service day status for a given date.
+ */
+export function getServiceDayInfo(date: Date = new Date()): {
+  isServiceDay: boolean;
+  serviceName: string;
+} {
+  const day = date.getDay();
+  if (day === 0) {
+    return { isServiceDay: true, serviceName: "Sunday Celebration Service" };
+  }
+  if (day === 4) {
+    return { isServiceDay: true, serviceName: "Thursday Midweek Service" };
+  }
+  return { isServiceDay: false, serviceName: "Non-Service Day (Services on Thursday & Sunday)" };
+}
 
 export interface ClockInRecord {
   id: string;

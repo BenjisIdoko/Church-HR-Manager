@@ -4,7 +4,7 @@ import { Button } from "./ui/button";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Badge } from "./ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { MapPin, Clock, AlertCircle, CheckCircle, Loader } from "lucide-react";
+import { MapPin, Clock, AlertCircle, CheckCircle, Loader, Calendar } from "lucide-react";
 import { User } from "../types/models";
 import {
   getCurrentLocation,
@@ -16,6 +16,7 @@ import {
   SERVICE_START_TIME,
   LATE_ARRIVAL_GRACE_MINUTES,
   GeofenceConfig,
+  getServiceDayInfo,
 } from "../utils/clockInService";
 import { getClockInSettings, recordClockIn, getWorkerClockStatus, WorkerClockStatus } from "../utils/api";
 
@@ -152,13 +153,28 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
   const statusColor = isWithin ? "text-green-600" : "text-red-600";
   const statusBg = isWithin ? "bg-green-50" : "bg-red-50";
 
+  const serviceInfo = getServiceDayInfo();
+
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
         <h1 className="text-3xl font-bold">Clock In/Out</h1>
         <p className="text-muted-foreground">
-          Check in when you arrive at church, check out when you leave
+          Check in when you arrive at church for Thursday & Sunday services
         </p>
+      </div>
+
+      {/* Service Schedule Banner */}
+      <div className={`rounded-xl border p-4 flex items-center gap-3 ${serviceInfo.isServiceDay ? 'border-emerald-200 bg-emerald-50 text-emerald-950' : 'border-indigo-200 bg-indigo-50/70 text-indigo-950'}`}>
+        <Calendar className={`h-6 w-6 shrink-0 ${serviceInfo.isServiceDay ? 'text-emerald-600' : 'text-indigo-600'}`} />
+        <div>
+          <p className="font-semibold text-sm">Service Days: Thursdays & Sundays</p>
+          <p className="text-xs mt-0.5 opacity-90">
+            {serviceInfo.isServiceDay
+              ? `🟢 Today is a Service Day (${serviceInfo.serviceName}). Attendance recording is active.`
+              : `ℹ️ Today is a Non-Service Day. Service attendance is recorded on Thursdays and Sundays.`}
+          </p>
+        </div>
       </div>
 
       {/* Location Status Card */}

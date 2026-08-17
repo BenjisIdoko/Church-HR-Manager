@@ -48,10 +48,10 @@ const MOCK_WORKERS: Worker[] = [
 ];
 
 const MOCK_ATTENDANCE: AttendanceRecord[] = [
-  { id: "1", workerId: "W001", workerName: "David Okoh", department: "Ushering", date: new Date().toISOString().split("T")[0], status: "present" },
-  { id: "2", workerId: "W002", workerName: "Grace Samuel", department: "Choir", date: new Date().toISOString().split("T")[0], status: "present" },
-  { id: "3", workerId: "W003", workerName: "Joshua Mark", department: "Media & Tech", date: new Date().toISOString().split("T")[0], status: "late" },
-  { id: "4", workerId: "W004", workerName: "Sarah John", department: "Children Ministry", date: new Date().toISOString().split("T")[0], status: "absent" },
+  { id: "1", workerId: "W001", workerName: "David Okoh", department: "Ushering", date: "2026-08-16", status: "present" }, // Sunday Service
+  { id: "2", workerId: "W002", workerName: "Grace Samuel", department: "Choir", date: "2026-08-16", status: "present" }, // Sunday Service
+  { id: "3", workerId: "W003", workerName: "Joshua Mark", department: "Media & Tech", date: "2026-08-13", status: "late" }, // Thursday Midweek Service
+  { id: "4", workerId: "W004", workerName: "Sarah John", department: "Children Ministry", date: "2026-08-13", status: "absent" }, // Thursday Midweek Service
 ];
 
 const API_BASE_URL = ((import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_URL || "").replace(/\/$/, "");

@@ -110,7 +110,7 @@ export function AttendanceOverview({ attendanceRecords, loading = false }: Atten
         <div>
           <h1>Attendance Overview</h1>
           <p className="text-muted-foreground">
-            View and filter worker attendance records
+            View and filter worker attendance records for Thursday and Sunday services
           </p>
         </div>
         <div className="flex gap-2">
@@ -247,7 +247,12 @@ export function AttendanceOverview({ attendanceRecords, loading = false }: Atten
                       <TableCell>{record.workerName}</TableCell>
                       <TableCell>{record.department}</TableCell>
                       <TableCell>{getStatusBadge(record.status)}</TableCell>
-                      <TableCell>{record.date}</TableCell>
+                      <TableCell>
+                        {record.date}{" "}
+                        <span className="text-xs text-muted-foreground font-semibold">
+                          ({new Date(record.date).toLocaleDateString("en-US", { weekday: "short" })})
+                        </span>
+                      </TableCell>
                       <TableCell>
                         <Button
                           variant="ghost"
