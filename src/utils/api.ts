@@ -54,9 +54,12 @@ const MOCK_ATTENDANCE: AttendanceRecord[] = [
   { id: "4", workerId: "W004", workerName: "Sarah John", department: "Children Ministry", date: new Date().toISOString().split("T")[0], status: "absent" },
 ];
 
+const API_BASE_URL = ((import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_URL || "").replace(/\/$/, "");
+
 async function apiRequest<T>(input: string, init?: RequestInit): Promise<T> {
+  const url = API_BASE_URL ? `${API_BASE_URL}${input}` : input;
   try {
-    const response = await fetch(input, init);
+    const response = await fetch(url, init);
     const contentType = response.headers.get("content-type");
 
     if (!response.ok) {
@@ -73,13 +76,13 @@ async function apiRequest<T>(input: string, init?: RequestInit): Promise<T> {
     }
 
     if (!contentType || !contentType.includes("application/json")) {
-      throw new Error(`Response from ${input} is not JSON`);
+      throw new Error(`Response from ${url} is not JSON`);
     }
 
     const payload = await response.json();
     return payload as T;
   } catch (error) {
-    console.warn(`API call to ${input} failed, falling back:`, error);
+    // Silent fallback to mock data when backend API is unavailable or static hosting serves HTML
     throw error;
   }
 }
