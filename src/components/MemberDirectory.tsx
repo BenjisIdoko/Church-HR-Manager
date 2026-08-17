@@ -66,25 +66,15 @@ export function MemberDirectory({
     [safeWorkers],
   );
 
-  const filteredWorkers = safeWorkers.filter((worker) => {
-    const query = searchQuery.trim().toLowerCase();
+  const query = searchQuery.trim().toLowerCase();
 
-    // 1. Direct person search match (by name, ID, email, or phone)
-    const isDirectPersonMatch =
-      query.length > 0 &&
-      ((worker.name || "").toLowerCase().includes(query) ||
-       (worker.id || "").toLowerCase().includes(query) ||
-       (worker.email || "").toLowerCase().includes(query) ||
-       (worker.phone || "").toLowerCase().includes(query));
-
-    // If user explicitly typed a person's name, ID, or phone, show them directly!
-    if (isDirectPersonMatch) {
-      return true;
-    }
-
-    // 2. Otherwise apply general search + department/status/role filters
-    const matchesGeneralSearch =
+  const strictFiltered = safeWorkers.filter((worker) => {
+    const matchesSearch =
       !query ||
+      (worker.name || "").toLowerCase().includes(query) ||
+      (worker.id || "").toLowerCase().includes(query) ||
+      (worker.email || "").toLowerCase().includes(query) ||
+      (worker.phone || "").toLowerCase().includes(query) ||
       (worker.department || "").toLowerCase().includes(query) ||
       (worker.role || "").toLowerCase().includes(query) ||
       (worker.status || "").toLowerCase().includes(query);
@@ -101,8 +91,29 @@ export function MemberDirectory({
       roleFilter === "all" ||
       (worker.role || "").trim().toLowerCase() === roleFilter.trim().toLowerCase();
 
-    return matchesGeneralSearch && matchesDepartment && matchesStatus && matchesRole;
+    return matchesSearch && matchesDepartment && matchesStatus && matchesRole;
   });
+
+  const isGlobalFallback =
+    query.length > 0 &&
+    strictFiltered.length === 0 &&
+    (departmentFilter !== "all" || roleFilter !== "all" || statusFilter !== "all");
+
+  const globalFiltered = isGlobalFallback
+    ? safeWorkers.filter((worker) => {
+        return (
+          (worker.name || "").toLowerCase().includes(query) ||
+          (worker.id || "").toLowerCase().includes(query) ||
+          (worker.email || "").toLowerCase().includes(query) ||
+          (worker.phone || "").toLowerCase().includes(query) ||
+          (worker.department || "").toLowerCase().includes(query) ||
+          (worker.role || "").toLowerCase().includes(query) ||
+          (worker.status || "").toLowerCase().includes(query)
+        );
+      })
+    : [];
+
+  const filteredWorkers = isGlobalFallback ? globalFiltered : strictFiltered;
 
   const sortedWorkers = sortData(filteredWorkers, sortConfig);
 
@@ -302,6 +313,27 @@ export function MemberDirectory({
             </div>
           </div>
 
+          {/* Global Search Fallback Banner */}
+          {isGlobalFallback && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-lg text-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4">
+              <span>
+                No match in <strong>{departmentFilter !== "all" ? departmentFilter : "selected filter"}</strong>. Showing {filteredWorkers.length} matching volunteer(s) for "<strong>{searchQuery}</strong>" across all departments.
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setDepartmentFilter("all");
+                  setRoleFilter("all");
+                  setStatusFilter("all");
+                }}
+                className="text-amber-900 underline hover:bg-amber-100 shrink-0 text-xs"
+              >
+                Clear Department Filter
+              </Button>
+            </div>
+          )}
+
           <div className="overflow-hidden rounded-lg border">
             <Table>
               <TableHeader>
@@ -320,7 +352,7 @@ export function MemberDirectory({
                 {sortedWorkers.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      No workers match the current filters.
+                      No volunteers match the current filters.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -368,8 +400,8 @@ export function MemberDirectory({
             <Dialog open={Boolean(selectedWorker)} onOpenChange={(open) => !open && setSelectedWorker(null)}>
               <DialogContent className="max-w-4xl">
                 <DialogHeader>
-                  <DialogTitle>Edit Member</DialogTitle>
-                  <DialogDescription>Update the selected member details in a modal window.</DialogDescription>
+                  <DialogTitle>Edit Volunteer Record</DialogTitle>
+                  <DialogDescription>Update details for {selectedWorker.name}. Changes take effect immediately.</DialogDescription>
                 </DialogHeader>
                 <Card className="border-2 border-slate-200 shadow-sm">
                   <CardContent className="space-y-4">

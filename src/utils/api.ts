@@ -3435,10 +3435,28 @@ export async function loginUser(identifier: string, password: string): Promise<U
 export async function fetchWorkers(): Promise<Worker[]> {
   try {
     const data = await apiRequest<Worker[]>("/api/workers");
-    return Array.isArray(data) ? data : MOCK_WORKERS;
+    if (Array.isArray(data) && data.length > 0) {
+      localStorage.setItem("church_hr_workers", JSON.stringify(data));
+      return data;
+    }
   } catch {
-    return MOCK_WORKERS;
+    // Backend API fallback
   }
+
+  const cached = localStorage.getItem("church_hr_workers");
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    } catch {
+      // Ignore cache parse error
+    }
+  }
+
+  localStorage.setItem("church_hr_workers", JSON.stringify(MOCK_WORKERS));
+  return MOCK_WORKERS;
 }
 
 export async function fetchAttendance(): Promise<AttendanceRecord[]> {
@@ -3474,6 +3492,22 @@ export async function fetchKpis(): Promise<KpiResponse> {
 
 export async function saveWorker(worker: Worker): Promise<Worker> {
   try {
+    const cached = localStorage.getItem("church_hr_workers");
+    let workersList: Worker[] = cached ? JSON.parse(cached) : [...MOCK_WORKERS];
+    if (!Array.isArray(workersList)) workersList = [...MOCK_WORKERS];
+
+    const index = workersList.findIndex((w) => w.id === worker.id);
+    if (index >= 0) {
+      workersList[index] = { ...workersList[index], ...worker };
+    } else {
+      workersList.push(worker);
+    }
+    localStorage.setItem("church_hr_workers", JSON.stringify(workersList));
+  } catch (err) {
+    console.warn("Failed to persist worker to localStorage:", err);
+  }
+
+  try {
     const response = await apiRequest<UpdateWorkerResponse>(`/api/workers/${encodeURIComponent(worker.id)}`, {
       method: "PUT",
       headers: {
@@ -3481,10 +3515,14 @@ export async function saveWorker(worker: Worker): Promise<Worker> {
       },
       body: JSON.stringify(worker),
     });
-    return response.worker;
+    if (response?.worker) {
+      return response.worker;
+    }
   } catch {
-    return worker;
+    // Static deployment fallback
   }
+
+  return worker;
 }
 
 
