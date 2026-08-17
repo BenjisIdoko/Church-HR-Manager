@@ -144,7 +144,7 @@ export function MemberDashboard({ user, worker, departments = DEFAULT_DEPARTMENT
             Update your profile photo, contact details, and active department assignments.
           </p>
         </div>
-        <Button asChild variant="secondary" className="bg-[#c85a32] text-white hover:bg-[#b04b27] self-start sm:self-auto">
+        <Button asChild variant="secondary" className="bg-[#0d9488] text-white hover:bg-[#0f766e] self-start sm:self-auto">
           <Link to="/clock-in">Clock In Now</Link>
         </Button>
       </div>
@@ -152,7 +152,7 @@ export function MemberDashboard({ user, worker, departments = DEFAULT_DEPARTMENT
       <Card className="border-0 shadow-sm bg-white">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="rounded-2xl bg-[#c85a32] p-3 text-white">
+            <div className="rounded-2xl bg-[#0d9488] p-3 text-white">
               <UserIcon className="h-5 w-5" />
             </div>
             <div>
@@ -177,14 +177,14 @@ export function MemberDashboard({ user, worker, departments = DEFAULT_DEPARTMENT
                   }}
                 />
               ) : (
-                <div className="h-24 w-24 rounded-2xl bg-[#c85a32]/10 border-4 border-white shadow-md flex items-center justify-center text-[#c85a32]">
+                <div className="h-24 w-24 rounded-2xl bg-[#0d9488]/10 border-4 border-white shadow-md flex items-center justify-center text-[#0d9488]">
                   <UserIcon className="h-10 w-10" />
                 </div>
               )}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute -bottom-1 -right-1 rounded-xl bg-[#c85a32] p-2 text-white hover:bg-[#b04b27] shadow-sm transition-transform active:scale-95"
+                className="absolute -bottom-1 -right-1 rounded-xl bg-[#0d9488] p-2 text-white hover:bg-[#0f766e] shadow-sm transition-transform active:scale-95"
                 disabled={uploading}
                 title="Upload Photo"
               >
@@ -277,7 +277,7 @@ export function MemberDashboard({ user, worker, departments = DEFAULT_DEPARTMENT
           <div className="space-y-3 pt-2 border-t border-slate-100">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-[#c85a32]" />
+                <Building2 className="h-4 w-4 text-[#0d9488]" />
                 <Label className="text-xs font-semibold uppercase text-slate-700">Assigned Department(s)</Label>
               </div>
               <span className="text-xs text-slate-500">Volunteers can belong to multiple departments</span>
@@ -288,7 +288,7 @@ export function MemberDashboard({ user, worker, departments = DEFAULT_DEPARTMENT
               {selectedDepts.map((dept) => (
                 <Badge
                   key={dept}
-                  className="bg-[#c85a32] text-white hover:bg-[#b04b27] px-3 py-1 text-xs flex items-center gap-1.5 rounded-lg shadow-2xs"
+                  className="bg-[#0d9488] text-white hover:bg-[#0f766e] px-3 py-1 text-xs flex items-center gap-1.5 rounded-lg shadow-2xs"
                 >
                   <span>{dept}</span>
                   <button
@@ -314,7 +314,7 @@ export function MemberDashboard({ user, worker, departments = DEFAULT_DEPARTMENT
                       key={dept}
                       type="button"
                       onClick={() => handleAddDept(dept)}
-                      className="text-xs px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-[#fbeee8] hover:border-[#c85a32] hover:text-[#c85a32] text-slate-700 transition-colors flex items-center gap-1"
+                      className="text-xs px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-[#ccfbf1]/40 hover:border-[#0d9488] hover:text-[#0d9488] text-slate-700 transition-colors flex items-center gap-1"
                     >
                       <Plus className="h-3 w-3" />
                       {dept}
@@ -353,7 +353,7 @@ export function MemberDashboard({ user, worker, departments = DEFAULT_DEPARTMENT
             <p className="text-xs text-slate-500">
               Your profile photo, contact info, and department assignments update live across church records.
             </p>
-            <Button onClick={handleSave} className="bg-[#c85a32] text-white hover:bg-[#b04b27] rounded-xl px-6">
+            <Button onClick={handleSave} className="bg-[#0d9488] text-white hover:bg-[#0f766e] rounded-xl px-6">
               <Save className="h-4 w-4 mr-2" />
               Save Profile Updates
             </Button>

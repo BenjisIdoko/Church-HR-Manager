@@ -422,7 +422,7 @@ export function MemberDirectory({
                               <Badge
                                 key={deptName}
                                 variant="secondary"
-                                className="bg-[#fbeee8] text-[#c85a32] border border-[#fcd34d]/30 font-medium text-[11px] px-2 py-0.5"
+                                className="bg-[#ccfbf1] text-[#0f766e] border border-[#0d9488]/20 font-medium text-[11px] px-2 py-0.5"
                               >
                                 {deptName}
                               </Badge>
@@ -577,7 +577,7 @@ export function MemberDirectory({
                                 }}
                                 className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${
                                   isIncluded
-                                    ? "bg-[#c85a32] text-white border-[#c85a32] font-medium"
+                                    ? "bg-[#0d9488] text-white border-[#0d9488] font-medium"
                                     : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                                 }`}
                               >

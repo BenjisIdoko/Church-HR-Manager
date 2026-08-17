@@ -118,14 +118,14 @@ export function AppLayout({ children, user, workers = [], onLogout }: AppLayoutP
       <aside className="hidden xl:flex xl:flex-col w-72 border-r border-[#e7e2d8] bg-[#faf7f2] shadow-xs">
         <div className="px-6 py-6 border-b border-[#e7e2d8]">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#c85a32] text-white shadow-md shadow-[#c85a32]/20">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl gradient-brand-icon text-white shadow-md">
               <HeartHandshake className="h-6 w-6" />
             </div>
             <div>
               <p className="text-base font-bold tracking-tight text-[#1c1917]">
                 Church HR
               </p>
-              <p className="text-[11px] font-semibold tracking-wide text-[#c85a32]">
+              <p className="text-[11px] font-semibold tracking-wide text-[#0d9488]">
                 Ministry & Care Suite
               </p>
             </div>
@@ -189,7 +189,7 @@ export function AppLayout({ children, user, workers = [], onLogout }: AppLayoutP
           <aside className="absolute left-0 top-0 bottom-0 w-72 bg-[#faf7f2] border-r border-[#e7e2d8] p-6 flex flex-col">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#c85a32] text-white font-bold">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-brand-icon text-white font-bold">
                   <HeartHandshake className="h-5 w-5" />
                 </div>
                 <p className="text-base font-bold text-[#1c1917]">Church HR</p>
@@ -211,7 +211,7 @@ export function AppLayout({ children, user, workers = [], onLogout }: AppLayoutP
                     <div
                       className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all ${
                         isActive
-                          ? "bg-[#c85a32] text-white font-semibold"
+                          ? "gradient-nav-active text-white font-semibold"
                           : "text-[#57534e] hover:bg-[#f4f1ea]"
                       }`}
                     >
@@ -294,7 +294,7 @@ export function AppLayout({ children, user, workers = [], onLogout }: AppLayoutP
                       }}
                     />
                   ) : (
-                    <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-[#c85a32] text-white font-bold text-sm flex items-center justify-center shadow-xs">
+                    <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl gradient-brand-icon text-white font-bold text-sm flex items-center justify-center shadow-xs">
                       {user.name.charAt(0) || "U"}
                     </div>
                   );

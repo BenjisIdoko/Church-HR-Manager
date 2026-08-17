@@ -107,7 +107,7 @@ export function CommandMenu({ open, onOpenChange, userRole = "superadmin", worke
                       />
                     ) : null}
                     {(!worker.profileImage) && (
-                      <div className="h-6 w-6 rounded-full bg-[#c85a32]/10 text-[#c85a32] flex items-center justify-center font-bold text-xs">
+                      <div className="h-6 w-6 rounded-full bg-[#0d9488]/10 text-[#0d9488] flex items-center justify-center font-bold text-xs">
                         {worker.name.charAt(0)}
                       </div>
                     )}
@@ -126,7 +126,7 @@ export function CommandMenu({ open, onOpenChange, userRole = "superadmin", worke
             const Icon = page.icon;
             return (
               <CommandItem key={page.path} onSelect={() => handleSelect(page.path)}>
-                <Icon className="mr-2.5 h-4 w-4 text-[#c85a32]" />
+                <Icon className="mr-2.5 h-4 w-4 text-[#0d9488]" />
                 <span className="font-medium text-[#1c1917]">{page.title}</span>
               </CommandItem>
             );

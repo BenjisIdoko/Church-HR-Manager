@@ -9,26 +9,26 @@
   --card-foreground: #1c1917;
   --popover: #ffffff;
   --popover-foreground: #1c1917;
-  --primary: #c85a32;
+  --primary: #0d9488;
   --primary-foreground: #ffffff;
-  --secondary: #f4f1ea;
-  --secondary-foreground: #1c1917;
+  --secondary: #f0fdf4;
+  --secondary-foreground: #0f766e;
   --muted: #f4f1ea;
   --muted-foreground: #78716c;
-  --accent: #fbeee8;
-  --accent-foreground: #9a3412;
+  --accent: #ccfbf1;
+  --accent-foreground: #0f766e;
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
   --border: #e7e2d8;
   --input: #e7e2d8;
-  --ring: #c85a32;
+  --ring: #0d9488;
   --radius: 0.875rem;
   --sidebar: #faf7f2;
   --sidebar-foreground: #1c1917;
-  --sidebar-primary: #c85a32;
+  --sidebar-primary: #0d9488;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f4f1ea;
-  --sidebar-accent-foreground: #c85a32;
+  --sidebar-accent: #f0fdf4;
+  --sidebar-accent-foreground: #0d9488;
   --sidebar-border: #e7e2d8;
 }
 
@@ -44,42 +44,42 @@
   }
 }
 
-/* Soft Ambient Gradient Design System (Inspired by Planning Center Modern Evolution) */
+/* Deep Emerald & Sage Teal Soft Ambient Gradient Design System */
 
 .gradient-header {
-  background: linear-gradient(135deg, rgba(251, 249, 245, 0.95) 0%, rgba(251, 238, 232, 0.6) 50%, rgba(255, 255, 255, 0.95) 100%);
+  background: linear-gradient(135deg, rgba(251, 249, 245, 0.95) 0%, rgba(204, 251, 241, 0.4) 50%, rgba(255, 255, 255, 0.95) 100%);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
 
 .gradient-brand-icon {
-  background: linear-gradient(135deg, #d96b43 0%, #c85a32 50%, #ab4622 100%);
-  box-shadow: 0 4px 14px rgba(200, 90, 50, 0.3);
+  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 50%, #0f766e 100%);
+  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.3);
 }
 
 .gradient-nav-active {
-  background: linear-gradient(135deg, #c85a32 0%, #da693e 100%);
-  box-shadow: 0 4px 12px rgba(200, 90, 50, 0.25);
+  background: linear-gradient(135deg, #0d9488 0%, #059669 100%);
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
 }
 
 .gradient-hero-card {
-  background: linear-gradient(135deg, #ffffff 0%, #fcfaf6 50%, #fbeee8 100%);
+  background: linear-gradient(135deg, #ffffff 0%, #f7fee7/30 50%, #ccfbf1/40 100%);
   border: 1px solid #e7e2d8;
-  box-shadow: 0 4px 20px -2px rgba(200, 90, 50, 0.05);
+  box-shadow: 0 4px 20px -2px rgba(13, 148, 136, 0.05);
 }
 
 .gradient-banner-volunteers {
-  background: linear-gradient(135deg, rgba(251, 238, 232, 0.7) 0%, rgba(251, 249, 245, 0.9) 60%, rgba(254, 243, 199, 0.4) 100%);
+  background: linear-gradient(135deg, rgba(204, 251, 241, 0.6) 0%, rgba(251, 249, 245, 0.9) 60%, rgba(236, 253, 245, 0.6) 100%);
 }
 
 .gradient-banner-analytics {
-  background: linear-gradient(135deg, rgba(238, 242, 255, 0.8) 0%, rgba(251, 249, 245, 0.9) 60%, rgba(224, 231, 255, 0.5) 100%);
+  background: linear-gradient(135deg, rgba(204, 251, 241, 0.6) 0%, rgba(251, 249, 245, 0.9) 60%, rgba(224, 231, 255, 0.5) 100%);
 }
 
 .gradient-brand-badge {
-  background: linear-gradient(135deg, #fbeee8 0%, rgba(252, 211, 77, 0.2) 100%);
-  color: #9a3412;
-  border: 1px solid rgba(200, 90, 50, 0.15);
+  background: linear-gradient(135deg, #ccfbf1 0%, rgba(16, 185, 129, 0.15) 100%);
+  color: #0f766e;
+  border: 1px solid rgba(13, 148, 136, 0.18);
 }
 
 /* Warm Linen Panel Elevation */
