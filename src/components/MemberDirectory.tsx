@@ -6,7 +6,7 @@ import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Badge } from "./ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { Download, Edit3, ChevronUp, ChevronDown, RotateCcw, Clock2, Upload, Camera, User as UserIcon } from "lucide-react";
+import { Download, Edit3, ChevronUp, ChevronDown, RotateCcw, Clock2, Upload, Camera, User as UserIcon, X } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Worker } from "../types/models";
@@ -23,7 +23,7 @@ interface MemberDirectoryProps {
   workers: Worker[];
   departments: string[];
   updateHistory: UpdateHistoryEntry[];
-  onUpdateWorker: (worker: Worker) => Promise<void>;
+  onUpdateWorker: (updatedWorker: Worker) => Promise<void>;
   editable?: boolean;
 }
 
@@ -68,14 +68,26 @@ export function MemberDirectory({
 
   const filteredWorkers = safeWorkers.filter((worker) => {
     const query = searchQuery.trim().toLowerCase();
-    const matchesSearch =
+
+    // 1. Direct person search match (by name, ID, email, or phone)
+    const isDirectPersonMatch =
+      query.length > 0 &&
+      ((worker.name || "").toLowerCase().includes(query) ||
+       (worker.id || "").toLowerCase().includes(query) ||
+       (worker.email || "").toLowerCase().includes(query) ||
+       (worker.phone || "").toLowerCase().includes(query));
+
+    // If user explicitly typed a person's name, ID, or phone, show them directly!
+    if (isDirectPersonMatch) {
+      return true;
+    }
+
+    // 2. Otherwise apply general search + department/status/role filters
+    const matchesGeneralSearch =
       !query ||
-      (worker.name || "").toLowerCase().includes(query) ||
-      (worker.id || "").toLowerCase().includes(query) ||
-      (worker.email || "").toLowerCase().includes(query) ||
-      (worker.phone || "").toLowerCase().includes(query) ||
       (worker.department || "").toLowerCase().includes(query) ||
-      (worker.role || "").toLowerCase().includes(query);
+      (worker.role || "").toLowerCase().includes(query) ||
+      (worker.status || "").toLowerCase().includes(query);
 
     const matchesDepartment =
       departmentFilter === "all" ||
@@ -89,7 +101,7 @@ export function MemberDirectory({
       roleFilter === "all" ||
       (worker.role || "").trim().toLowerCase() === roleFilter.trim().toLowerCase();
 
-    return matchesSearch && matchesDepartment && matchesStatus && matchesRole;
+    return matchesGeneralSearch && matchesDepartment && matchesStatus && matchesRole;
   });
 
   const sortedWorkers = sortData(filteredWorkers, sortConfig);
@@ -185,10 +197,9 @@ export function MemberDirectory({
     }
   };
 
+  const hasActiveFilters = searchQuery !== "" || departmentFilter !== "all" || roleFilter !== "all" || statusFilter !== "all";
   const pageTitle = "Volunteer Directory";
   const pageDescription = "Search, filter and review volunteer records with change history in one place.";
-  const sectionTitle = "Volunteer Overview";
-  const sectionDescription = "Search, filter and review volunteer records with change history in one place.";
 
   return (
     <div className="space-y-6">
@@ -198,10 +209,12 @@ export function MemberDirectory({
           <p className="text-muted-foreground">{pageDescription}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleReset}>
-            <RotateCcw className="h-4 w-4 mr-2" />
-            Clear Filters
-          </Button>
+          {hasActiveFilters && (
+            <Button variant="outline" onClick={handleReset}>
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Clear Filters
+            </Button>
+          )}
           <Button onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
             Export CSV
@@ -217,14 +230,27 @@ export function MemberDirectory({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-6">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-4">
             <div>
               <Label>Search</Label>
-              <Input
-                placeholder="Search by name, ID, department, or email"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+              <div className="relative">
+                <Input
+                  placeholder="Search by name, ID, department, or email"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className={searchQuery ? "pr-8" : ""}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                    title="Clear search"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
             </div>
             <div>
               <Label>Department</Label>
