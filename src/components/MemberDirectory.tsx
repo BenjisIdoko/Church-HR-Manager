@@ -1,4 +1,5 @@
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -6,7 +7,7 @@ import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Badge } from "./ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { Download, Edit3, ChevronUp, ChevronDown, RotateCcw, Clock2, Upload, Camera, User as UserIcon, X } from "lucide-react";
+import { Download, Edit3, ChevronUp, ChevronDown, RotateCcw, Clock2, Upload, Camera, User as UserIcon, X, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Worker } from "../types/models";
@@ -34,7 +35,10 @@ export function MemberDirectory({
   onUpdateWorker,
   editable = true,
 }: MemberDirectoryProps) {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchParams] = useSearchParams();
+  const urlSearchQuery = searchParams.get("search") || "";
+
+  const [searchQuery, setSearchQuery] = useState(urlSearchQuery);
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -43,20 +47,29 @@ export function MemberDirectory({
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (urlSearchQuery) {
+      setSearchQuery(urlSearchQuery);
+    }
+  }, [urlSearchQuery]);
+
   const safeWorkers = Array.isArray(workers) ? workers : [];
   const safeDepartments = Array.isArray(departments) ? departments : [];
   const safeUpdateHistory = Array.isArray(updateHistory) ? updateHistory : [];
 
-  const departmentOptions = useMemo(
-    () =>
-      Array.from(
-        new Set([
-          ...safeDepartments,
-          ...safeWorkers.map((w) => w?.department).filter((d): d is string => Boolean(d)),
-        ]),
-      ),
-    [safeDepartments, safeWorkers],
-  );
+  const departmentOptions = useMemo(() => {
+    const set = new Set<string>();
+    safeDepartments.forEach((d) => { if (d && d.trim()) set.add(d.trim()); });
+    safeWorkers.forEach((w) => {
+      if (w?.department) {
+        w.department.split(",").forEach((d) => { if (d && d.trim()) set.add(d.trim()); });
+      }
+      if (Array.isArray(w?.departments)) {
+        w.departments.forEach((d) => { if (d && d.trim()) set.add(d.trim()); });
+      }
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [safeDepartments, safeWorkers]);
 
   const roleOptions = useMemo(
     () =>
@@ -79,9 +92,23 @@ export function MemberDirectory({
       (worker.role || "").toLowerCase().includes(query) ||
       (worker.status || "").toLowerCase().includes(query);
 
+    const workerDepts = (worker.department || "")
+      .split(",")
+      .map((d) => d.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (Array.isArray(worker.departments)) {
+      worker.departments.forEach((d) => {
+        const lower = (d || "").trim().toLowerCase();
+        if (lower && !workerDepts.includes(lower)) {
+          workerDepts.push(lower);
+        }
+      });
+    }
+
     const matchesDepartment =
       departmentFilter === "all" ||
-      (worker.department || "").trim().toLowerCase() === departmentFilter.trim().toLowerCase();
+      workerDepts.includes(departmentFilter.trim().toLowerCase());
 
     const matchesStatus =
       statusFilter === "all" ||
@@ -334,7 +361,7 @@ export function MemberDirectory({
             </div>
           )}
 
-          <div className="overflow-hidden rounded-lg border">
+          <div className="overflow-x-auto rounded-lg border bg-white shadow-2xs">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -342,7 +369,7 @@ export function MemberDirectory({
                   <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort("id")}>Worker ID{getSortIcon("id")}</TableHead>
                   <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort("name")}>Name{getSortIcon("name")}</TableHead>
                   <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort("email")}>Email{getSortIcon("email")}</TableHead>
-                  <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort("department")}>Department{getSortIcon("department")}</TableHead>
+                  <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort("department")}>Department(s){getSortIcon("department")}</TableHead>
                   <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort("role")}>Role{getSortIcon("role")}</TableHead>
                   <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort("status")}>Status{getSortIcon("status")}</TableHead>
                   {editable && <TableHead>Actions</TableHead>}
@@ -371,10 +398,26 @@ export function MemberDirectory({
                           </div>
                         )}
                       </TableCell>
-                      <TableCell className="font-medium">{worker.id}</TableCell>
-                      <TableCell>{worker.name}</TableCell>
+                      <TableCell className="font-medium whitespace-nowrap">{worker.id}</TableCell>
+                      <TableCell className="font-semibold text-[#1c1917] whitespace-nowrap">{worker.name}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{worker.email}</TableCell>
-                      <TableCell>{worker.department}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1 max-w-[220px]">
+                          {(worker.department || "")
+                            .split(",")
+                            .map((d) => d.trim())
+                            .filter(Boolean)
+                            .map((deptName) => (
+                              <Badge
+                                key={deptName}
+                                variant="secondary"
+                                className="bg-[#fbeee8] text-[#c85a32] border border-[#fcd34d]/30 font-medium text-[11px] px-2 py-0.5"
+                              >
+                                {deptName}
+                              </Badge>
+                            ))}
+                        </div>
+                      </TableCell>
                       <TableCell>{worker.role}</TableCell>
                       <TableCell>
                         <Badge className={worker.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-700"}>
@@ -488,22 +531,50 @@ export function MemberDirectory({
 
                     <div className="grid gap-4 md:grid-cols-2">
                       <div className="space-y-2">
-                        <Label htmlFor="edit-department">Department</Label>
-                        <Select
+                        <Label htmlFor="edit-department">Department(s) (select multiple or type comma-separated)</Label>
+                        <Input
+                          id="edit-department"
                           value={selectedWorker.department}
-                          onValueChange={(value) => setSelectedWorker({ ...selectedWorker, department: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Department" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {departmentOptions.map((dept) => (
-                              <SelectItem key={dept} value={dept}>
-                                {dept}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          onChange={(e) => setSelectedWorker({ ...selectedWorker, department: e.target.value })}
+                          placeholder="e.g. Intercessors, Media"
+                        />
+                        <div className="flex flex-wrap gap-1 mt-1.5 max-h-24 overflow-y-auto">
+                          {departmentOptions.map((dept) => {
+                            const isIncluded = (selectedWorker.department || "")
+                              .split(",")
+                              .map((d) => d.trim().toLowerCase())
+                              .includes(dept.trim().toLowerCase());
+                            return (
+                              <button
+                                key={dept}
+                                type="button"
+                                onClick={() => {
+                                  const currentDepts = (selectedWorker.department || "")
+                                    .split(",")
+                                    .map((d) => d.trim())
+                                    .filter(Boolean);
+                                  let nextDepts: string[];
+                                  if (isIncluded) {
+                                    nextDepts = currentDepts.filter((d) => d.toLowerCase() !== dept.toLowerCase());
+                                  } else {
+                                    nextDepts = [...currentDepts, dept];
+                                  }
+                                  setSelectedWorker({
+                                    ...selectedWorker,
+                                    department: nextDepts.join(", "),
+                                  });
+                                }}
+                                className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${
+                                  isIncluded
+                                    ? "bg-[#c85a32] text-white border-[#c85a32] font-medium"
+                                    : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                                }`}
+                              >
+                                {isIncluded ? "✓ " : "+ "}{dept}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="edit-role">Role</Label>

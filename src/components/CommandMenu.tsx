@@ -15,6 +15,7 @@ import {
   BarChart3,
   Clock,
   Settings as SettingsIcon,
+  User as UserIcon,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -25,14 +26,16 @@ import {
   CommandList,
   CommandSeparator,
 } from "./ui/command";
+import { Worker } from "../types/models";
 
 interface CommandMenuProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userRole?: string;
+  workers?: Worker[];
 }
 
-export function CommandMenu({ open, onOpenChange, userRole = "superadmin" }: CommandMenuProps) {
+export function CommandMenu({ open, onOpenChange, userRole = "superadmin", workers = [] }: CommandMenuProps) {
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -49,6 +52,11 @@ export function CommandMenu({ open, onOpenChange, userRole = "superadmin" }: Com
   const handleSelect = (path: string) => {
     onOpenChange(false);
     navigate(path);
+  };
+
+  const handleSelectVolunteer = (worker: Worker) => {
+    onOpenChange(false);
+    navigate(`/workers?search=${encodeURIComponent(worker.name)}`);
   };
 
   const pages = [
@@ -69,12 +77,42 @@ export function CommandMenu({ open, onOpenChange, userRole = "superadmin" }: Com
   ];
 
   const allowedPages = pages.filter((p) => p.roles.includes(userRole));
+  const safeWorkers = Array.isArray(workers) ? workers : [];
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
-      <CommandInput placeholder="Search servant leaders, pages, or care tasks (⌘K)..." />
+      <CommandInput placeholder="Search volunteers by name, department, phone or email (⌘K)..." />
       <CommandList>
         <CommandEmpty>No matching records or pages found.</CommandEmpty>
+        
+        {/* Volunteer Directory Search Items */}
+        {(userRole === "superadmin" || userRole === "manager") && safeWorkers.length > 0 && (
+          <>
+            <CommandGroup heading="Volunteers & Workforce">
+              {safeWorkers.slice(0, 80).map((worker) => (
+                <CommandItem
+                  key={worker.id}
+                  onSelect={() => handleSelectVolunteer(worker)}
+                  className="flex items-center justify-between cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5">
+                    {worker.profileImage ? (
+                      <img src={worker.profileImage} alt={worker.name} className="h-6 w-6 rounded-full object-cover" />
+                    ) : (
+                      <div className="h-6 w-6 rounded-full bg-[#c85a32]/10 text-[#c85a32] flex items-center justify-center font-bold text-xs">
+                        {worker.name.charAt(0)}
+                      </div>
+                    )}
+                    <span className="font-medium text-[#1c1917]">{worker.name}</span>
+                  </div>
+                  <span className="text-xs text-[#78716c] font-normal">{worker.department}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+            <CommandSeparator />
+          </>
+        )}
+
         <CommandGroup heading="Ministry Pages">
           {allowedPages.map((page) => {
             const Icon = page.icon;
@@ -86,7 +124,9 @@ export function CommandMenu({ open, onOpenChange, userRole = "superadmin" }: Com
             );
           })}
         </CommandGroup>
+        
         <CommandSeparator />
+        
         <CommandGroup heading="Care & Quick Actions">
           <CommandItem onSelect={() => handleSelect("/kiosk")}>
             <QrCode className="mr-2.5 h-4 w-4 text-[#2e7d32]" />
@@ -103,4 +143,3 @@ export function CommandMenu({ open, onOpenChange, userRole = "superadmin" }: Com
     </CommandDialog>
   );
 }
-

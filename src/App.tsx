@@ -152,13 +152,28 @@ export default function App() {
     setManualDepartments((prev) => Array.from(new Set([...prev, normalized])));
   };
 
-  const handleUpdateProfile = async (updated: { name: string; email: string; phone: string; profileImage?: string }) => {
+  const handleUpdateProfile = async (updated: {
+    name: string;
+    email: string;
+    phone: string;
+    department?: string;
+    departments?: string[];
+    profileImage?: string;
+  }) => {
     if (!currentUser) return;
 
     if (currentUser.role === "member" && currentUser.workerId) {
       const worker = workers.find((w) => w.id === currentUser.workerId);
       if (worker) {
-        await handleUpdateWorker({ ...worker, name: updated.name, email: updated.email, phone: updated.phone, profileImage: updated.profileImage });
+        await handleUpdateWorker({
+          ...worker,
+          name: updated.name,
+          email: updated.email,
+          phone: updated.phone,
+          department: updated.department ?? worker.department,
+          departments: updated.departments ?? worker.departments,
+          profileImage: updated.profileImage ?? worker.profileImage,
+        });
       }
       setCurrentUser((prev) => (prev ? { ...prev, name: updated.name, email: updated.email } : prev));
       return;
@@ -204,7 +219,7 @@ export default function App() {
           path="/dashboard"
           element={
             currentUser?.role === "superadmin" ? (
-              <AppLayout user={currentUser} onLogout={handleLogout}>
+              <AppLayout user={currentUser} workers={workers} onLogout={handleLogout}>
                 {renderPage(
                   <AdminDashboard
                     workers={workers}
@@ -224,7 +239,7 @@ export default function App() {
           path="/import"
           element={
             currentUser?.role === "superadmin" ? (
-              <AppLayout user={currentUser} onLogout={handleLogout}>
+              <AppLayout user={currentUser} workers={workers} onLogout={handleLogout}>
                 {renderPage(<DataImportScreen onImportComplete={loadAppData} />)}
               </AppLayout>
             ) : (
@@ -236,7 +251,7 @@ export default function App() {
           path="/workers"
           element={
             currentUser?.role === "superadmin" || currentUser?.role === "manager" ? (
-              <AppLayout user={currentUser} onLogout={handleLogout}>
+              <AppLayout user={currentUser} workers={workers} onLogout={handleLogout}>
                 {renderPage(
                   <MemberDirectory
                     workers={workers}
@@ -255,7 +270,7 @@ export default function App() {
           path="/services"
           element={
             currentUser?.role === "superadmin" || currentUser?.role === "manager" ? (
-              <AppLayout user={currentUser} onLogout={handleLogout}>
+              <AppLayout user={currentUser} workers={workers} onLogout={handleLogout}>
                 {renderPage(<ServicePlanner workers={workers} />)}
               </AppLayout>
             ) : (
@@ -267,7 +282,7 @@ export default function App() {
           path="/calendar"
           element={
             currentUser?.role === "superadmin" || currentUser?.role === "manager" ? (
-              <AppLayout user={currentUser} onLogout={handleLogout}>
+              <AppLayout user={currentUser} workers={workers} onLogout={handleLogout}>
                 {renderPage(<MasterCalendar workers={workers} />)}
               </AppLayout>
             ) : (
@@ -279,7 +294,7 @@ export default function App() {
           path="/kiosk"
           element={
             currentUser ? (
-              <AppLayout user={currentUser} onLogout={handleLogout}>
+              <AppLayout user={currentUser} workers={workers} onLogout={handleLogout}>
                 {renderPage(<KioskCheckIn />)}
               </AppLayout>
             ) : (
@@ -291,7 +306,7 @@ export default function App() {
           path="/visitors"
           element={
             currentUser?.role === "superadmin" || currentUser?.role === "manager" ? (
-              <AppLayout user={currentUser} onLogout={handleLogout}>
+              <AppLayout user={currentUser} workers={workers} onLogout={handleLogout}>
                 {renderPage(<VisitorManagement workers={workers} />)}
               </AppLayout>
             ) : (
@@ -303,7 +318,7 @@ export default function App() {
           path="/groups"
           element={
             currentUser?.role === "superadmin" || currentUser?.role === "manager" ? (
-              <AppLayout user={currentUser} onLogout={handleLogout}>
+              <AppLayout user={currentUser} workers={workers} onLogout={handleLogout}>
                 {renderPage(<CellGroupsManagement workers={workers} />)}
               </AppLayout>
             ) : (
@@ -315,7 +330,7 @@ export default function App() {
           path="/assets"
           element={
             currentUser?.role === "superadmin" || currentUser?.role === "manager" ? (
-              <AppLayout user={currentUser} onLogout={handleLogout}>
+              <AppLayout user={currentUser} workers={workers} onLogout={handleLogout}>
                 {renderPage(<AssetManagementScreen workers={workers} />)}
               </AppLayout>
             ) : (
@@ -327,7 +342,7 @@ export default function App() {
           path="/discipleship"
           element={
             currentUser?.role === "superadmin" || currentUser?.role === "manager" ? (
-              <AppLayout user={currentUser} onLogout={handleLogout}>
+              <AppLayout user={currentUser} workers={workers} onLogout={handleLogout}>
                 {renderPage(<DiscipleshipTracker workers={workers} />)}
               </AppLayout>
             ) : (
@@ -339,7 +354,7 @@ export default function App() {
           path="/attendance"
           element={
             currentUser?.role === "superadmin" ? (
-              <AppLayout user={currentUser} onLogout={handleLogout}>
+              <AppLayout user={currentUser} workers={workers} onLogout={handleLogout}>
                 {renderPage(<AttendanceOverview attendanceRecords={attendanceRecords} loading={loadingData} />)}
               </AppLayout>
             ) : (
@@ -351,7 +366,7 @@ export default function App() {
           path="/attendance/:workerId"
           element={
             currentUser?.role === "superadmin" ? (
-              <AppLayout user={currentUser} onLogout={handleLogout}>
+              <AppLayout user={currentUser} workers={workers} onLogout={handleLogout}>
                 {renderPage(
                   <AttendanceDetailView
                     workers={workers}
@@ -369,7 +384,7 @@ export default function App() {
           path="/reports"
           element={
             currentUser?.role === "superadmin" ? (
-              <AppLayout user={currentUser} onLogout={handleLogout}>
+              <AppLayout user={currentUser} workers={workers} onLogout={handleLogout}>
                 {renderPage(<ReportsAnalytics attendanceRecords={attendanceRecords} loading={loadingData} />)}
               </AppLayout>
             ) : (
@@ -381,7 +396,7 @@ export default function App() {
           path="/settings"
           element={
             currentUser?.role === "superadmin" ? (
-              <AppLayout user={currentUser} onLogout={handleLogout}>
+              <AppLayout user={currentUser} workers={workers} onLogout={handleLogout}>
                 {renderPage(<Settings departments={departments} onAddDepartment={handleAddDepartment} />)}
               </AppLayout>
             ) : (
@@ -393,7 +408,7 @@ export default function App() {
           path="/clock-in-portal"
           element={
             currentUser?.role === "superadmin" ? (
-              <AppLayout user={currentUser} onLogout={handleLogout}>
+              <AppLayout user={currentUser} workers={workers} onLogout={handleLogout}>
                 {renderPage(<ClockInManagement />)}
               </AppLayout>
             ) : (
@@ -405,11 +420,12 @@ export default function App() {
           path="/member"
           element={
             currentUser?.role === "member" ? (
-              <AppLayout user={currentUser} onLogout={handleLogout}>
+              <AppLayout user={currentUser} workers={workers} onLogout={handleLogout}>
                 {renderPage(
                   <MemberDashboard
                     user={currentUser}
                     worker={workers.find((w) => w.id === currentUser.workerId)}
+                    departments={departments}
                     onUpdateProfile={handleUpdateProfile}
                   />,
                 )}
@@ -423,7 +439,7 @@ export default function App() {
           path="/clock-in"
           element={
             currentUser?.role === "member" ? (
-              <AppLayout user={currentUser} onLogout={handleLogout}>
+              <AppLayout user={currentUser} workers={workers} onLogout={handleLogout}>
                 {renderPage(<ClockInScreen user={currentUser} />)}
               </AppLayout>
             ) : (

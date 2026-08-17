@@ -2,6 +2,7 @@ export interface Worker {
   id: string;
   name: string;
   department: string;
+  departments?: string[];
   role: string;
   status: "active" | "inactive";
   email: string;

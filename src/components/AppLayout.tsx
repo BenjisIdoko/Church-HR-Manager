@@ -36,6 +36,7 @@ import {
 } from "./ui/alert-dialog";
 import { AbsenceNotification } from "./AbsenceNotification";
 import { CommandMenu } from "./CommandMenu";
+import { Worker } from "../types/models";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -43,6 +44,7 @@ interface AppLayoutProps {
     name: string;
     role: "superadmin" | "manager" | "member";
   };
+  workers?: Worker[];
   onLogout: () => void;
 }
 
@@ -87,7 +89,7 @@ const managerNavItems: NavItem[] = [
   { path: "/discipleship", icon: GraduationCap, label: "Discipleship LMS" },
 ];
 
-export function AppLayout({ children, user, onLogout }: AppLayoutProps) {
+export function AppLayout({ children, user, workers = [], onLogout }: AppLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
@@ -226,9 +228,9 @@ export function AppLayout({ children, user, onLogout }: AppLayoutProps) {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="border-b border-[#e7e2d8] bg-white/90 backdrop-blur-md px-6 py-3.5 sticky top-0 z-10">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1 max-w-xl">
+        <header className="border-b border-[#e7e2d8] bg-white/90 backdrop-blur-md px-4 sm:px-6 py-3 sticky top-0 z-10">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-1 max-w-xl">
               <Button
                 variant="ghost"
                 size="icon"
@@ -238,20 +240,30 @@ export function AppLayout({ children, user, onLogout }: AppLayoutProps) {
                 <Menu className="h-5 w-5" />
               </Button>
               
-              {/* Cmd+K Quick Search Bar */}
+              {/* Quick Search Button (Mobile icon + Desktop bar) */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setCommandOpen(true)}
+                className="sm:hidden text-[#57534e]"
+                title="Search (⌘K)"
+              >
+                <Search className="h-5 w-5" />
+              </Button>
+
               <button
                 onClick={() => setCommandOpen(true)}
                 className="hidden sm:flex items-center gap-3 w-full max-w-md rounded-xl border border-[#e7e2d8] bg-[#fbf9f5] px-3.5 py-2 text-xs text-[#78716c] hover:border-[#d6cebf] transition-colors shadow-2xs"
               >
                 <Search className="h-4 w-4 text-[#989086]" />
-                <span className="flex-1 text-left font-normal">Search servant leaders, teams, or care notes...</span>
-                <kbd className="pointer-events-none inline-flex h-5 items-center gap-1 rounded border border-[#e7e2d8] bg-white px-1.5 text-[10px] font-semibold text-[#78716c]">
+                <span className="flex-1 text-left font-normal truncate">Search volunteers, teams, or care notes...</span>
+                <kbd className="pointer-events-none inline-flex h-5 items-center gap-1 rounded border border-[#e7e2d8] bg-white px-1.5 text-[10px] font-semibold text-[#78716c] shrink-0">
                   <Command className="h-2.5 w-2.5" /> K
                 </kbd>
               </button>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <AbsenceNotification />
 
               <Button
@@ -262,14 +274,14 @@ export function AppLayout({ children, user, onLogout }: AppLayoutProps) {
                 <Bell className="h-4 w-4" />
               </Button>
 
-              <div className="h-6 w-px bg-[#e7e2d8] mx-1" />
+              <div className="h-6 w-px bg-[#e7e2d8] mx-0.5 sm:mx-1" />
 
-              <div className="flex items-center gap-3 pl-1">
-                <div className="h-9 w-9 rounded-xl bg-[#c85a32] text-white font-bold text-sm flex items-center justify-center shadow-xs">
+              <div className="flex items-center gap-2 sm:gap-3 pl-1">
+                <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-[#c85a32] text-white font-bold text-sm flex items-center justify-center shadow-xs">
                   {user.name.charAt(0) || "U"}
                 </div>
                 <div className="hidden md:block text-left">
-                  <p className="text-xs font-semibold text-[#1c1917] leading-tight">Grace & peace, {user.name}</p>
+                  <p className="text-xs font-semibold text-[#1c1917] leading-tight max-w-[160px] truncate">{user.name}</p>
                   <p className="text-[10px] font-medium text-[#78716c] capitalize leading-tight">{roleLabel}</p>
                 </div>
               </div>
@@ -278,13 +290,13 @@ export function AppLayout({ children, user, onLogout }: AppLayoutProps) {
         </header>
 
         {/* Page Content Container */}
-        <main className="flex-1 overflow-auto p-6 xl:p-8 bg-[#fbf9f5]">
+        <main className="flex-1 overflow-auto p-4 sm:p-6 xl:p-8 bg-[#fbf9f5]">
           {children}
         </main>
       </div>
 
       {/* Command Palette */}
-      <CommandMenu open={commandOpen} onOpenChange={setCommandOpen} userRole={user.role} />
+      <CommandMenu open={commandOpen} onOpenChange={setCommandOpen} userRole={user.role} workers={workers} />
 
       {/* Logout Confirmation Dialog */}
       <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
