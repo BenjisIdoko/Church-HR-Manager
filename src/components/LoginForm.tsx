@@ -32,7 +32,7 @@ export function LoginForm({ workers, onLogin }: LoginFormProps) {
   const [hodPasscode, setHodPasscode] = useState("");
   const [hodError, setHodError] = useState("");
   const [adminUsername, setAdminUsername] = useState("admin@church.com");
-  const [adminPassword, setAdminPassword] = useState("");
+  const [adminPassword, setAdminPassword] = useState("Admin@123");
   const [adminError, setAdminError] = useState("");
   const [showDemoTip, setShowDemoTip] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);

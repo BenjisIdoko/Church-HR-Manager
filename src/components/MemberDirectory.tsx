@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -6,7 +6,7 @@ import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Badge } from "./ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { Download, Edit3, ChevronUp, ChevronDown, RotateCcw, Clock2 } from "lucide-react";
+import { Download, Edit3, ChevronUp, ChevronDown, RotateCcw, Clock2, Upload, Camera, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Worker } from "../types/models";
@@ -40,6 +40,8 @@ export function MemberDirectory({
   const [roleFilter, setRoleFilter] = useState("all");
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const departmentOptions = useMemo(
     () => Array.from(new Set([...departments, ...workers.map((w) => w.department)])),
@@ -113,6 +115,46 @@ export function MemberDirectory({
 
   const handleStartEdit = (worker: Worker) => {
     setSelectedWorker(worker);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image size must be less than 5MB");
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      toast.error("Only image files are allowed");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch('/api/upload-profile-image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result.ok) {
+        throw new Error(result.message || 'Upload failed');
+      }
+
+      if (selectedWorker) {
+        setSelectedWorker({ ...selectedWorker, profileImage: result.imageUrl });
+      }
+      toast.success("Profile image uploaded successfully");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to upload image");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const pageTitle = "Workers Directory";
@@ -210,6 +252,7 @@ export function MemberDirectory({
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Photo</TableHead>
                   <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort("id")}>Worker ID{getSortIcon("id")}</TableHead>
                   <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort("name")}>Name{getSortIcon("name")}</TableHead>
                   <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort("email")}>Email{getSortIcon("email")}</TableHead>
@@ -222,13 +265,26 @@ export function MemberDirectory({
               <TableBody>
                 {sortedWorkers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No workers match the current filters.
                     </TableCell>
                   </TableRow>
                 ) : (
                   sortedWorkers.map((worker) => (
                     <TableRow key={worker.id}>
+                      <TableCell>
+                        {worker.profileImage ? (
+                          <img
+                            src={worker.profileImage}
+                            alt={worker.name}
+                            className="h-10 w-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center">
+                            <UserIcon className="h-5 w-5 text-slate-400" />
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell className="font-medium">{worker.id}</TableCell>
                       <TableCell>{worker.name}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{worker.email}</TableCell>
@@ -263,6 +319,67 @@ export function MemberDirectory({
                 </DialogHeader>
                 <Card className="border-2 border-slate-200 shadow-sm">
                   <CardContent className="space-y-4">
+                    {/* Profile Image Upload */}
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="relative">
+                        {selectedWorker.profileImage ? (
+                          <img
+                            src={selectedWorker.profileImage}
+                            alt="Profile"
+                            className="h-24 w-24 rounded-full object-cover border-4 border-slate-200"
+                          />
+                        ) : (
+                          <div className="h-24 w-24 rounded-full bg-slate-200 flex items-center justify-center border-4 border-slate-200">
+                            <UserIcon className="h-10 w-10 text-slate-400" />
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="absolute bottom-0 right-0 rounded-full bg-indigo-600 p-2 text-white hover:bg-indigo-700 transition-colors"
+                          disabled={uploading}
+                        >
+                          <Camera className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <div className="text-center">
+                        <Label htmlFor="edit-profile-image" className="text-base font-medium text-center">Profile Photo</Label>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Upload a profile picture (JPEG, PNG, GIF, or WebP, max 5MB)
+                        </p>
+                        <div className="flex justify-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={uploading}
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            {uploading ? 'Uploading...' : 'Upload Image'}
+                          </Button>
+                          {selectedWorker.profileImage && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setSelectedWorker({ ...selectedWorker, profileImage: '' })}
+                            >
+                              Remove
+                            </Button>
+                          )}
+                        </div>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          id="edit-profile-image"
+                          accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                          className="hidden"
+                          onChange={handleImageUpload}
+                        />
+                      </div>
+                    </div>
+
                     <div className="grid gap-4 md:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor="edit-name">Name</Label>

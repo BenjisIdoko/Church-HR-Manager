@@ -12,6 +12,13 @@ import { AttendanceOverview } from "./components/AttendanceOverview";
 import { AttendanceDetailView } from "./components/AttendanceDetailView";
 import { ReportsAnalytics } from "./components/ReportsAnalytics";
 import { Settings } from "./components/Settings";
+import { VisitorManagement } from "./components/VisitorManagement";
+import { CellGroupsManagement } from "./components/CellGroupsManagement";
+import { AssetManagementScreen } from "./components/AssetManagementScreen";
+import { DiscipleshipTracker } from "./components/DiscipleshipTracker";
+import { ServicePlanner } from "./components/ServicePlanner";
+import { MasterCalendar } from "./components/MasterCalendar";
+import { KioskCheckIn } from "./components/KioskCheckIn";
 import { Toaster } from "./components/ui/sonner";
 import { Alert, AlertDescription } from "./components/ui/alert";
 import { fetchAttendance, fetchKpis, fetchWorkers, saveWorker } from "./utils/api";
@@ -116,13 +123,13 @@ export default function App() {
     setManualDepartments((prev) => Array.from(new Set([...prev, normalized])));
   };
 
-  const handleUpdateProfile = async (updated: { name: string; email: string; phone: string }) => {
+  const handleUpdateProfile = async (updated: { name: string; email: string; phone: string; profileImage?: string }) => {
     if (!currentUser) return;
 
     if (currentUser.role === "member" && currentUser.workerId) {
       const worker = workers.find((w) => w.id === currentUser.workerId);
       if (worker) {
-        await handleUpdateWorker({ ...worker, name: updated.name, email: updated.email, phone: updated.phone });
+        await handleUpdateWorker({ ...worker, name: updated.name, email: updated.email, phone: updated.phone, profileImage: updated.profileImage });
       }
       setCurrentUser((prev) => (prev ? { ...prev, name: updated.name, email: updated.email } : prev));
       return;
@@ -209,6 +216,90 @@ export default function App() {
                     onUpdateWorker={handleUpdateWorker}
                   />,
                 )}
+              </AppLayout>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/services"
+          element={
+            currentUser?.role === "superadmin" || currentUser?.role === "manager" ? (
+              <AppLayout user={currentUser} onLogout={handleLogout}>
+                {renderPage(<ServicePlanner workers={workers} />)}
+              </AppLayout>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/calendar"
+          element={
+            currentUser?.role === "superadmin" || currentUser?.role === "manager" ? (
+              <AppLayout user={currentUser} onLogout={handleLogout}>
+                {renderPage(<MasterCalendar workers={workers} />)}
+              </AppLayout>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/kiosk"
+          element={
+            currentUser ? (
+              <AppLayout user={currentUser} onLogout={handleLogout}>
+                {renderPage(<KioskCheckIn />)}
+              </AppLayout>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/visitors"
+          element={
+            currentUser?.role === "superadmin" || currentUser?.role === "manager" ? (
+              <AppLayout user={currentUser} onLogout={handleLogout}>
+                {renderPage(<VisitorManagement workers={workers} />)}
+              </AppLayout>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/groups"
+          element={
+            currentUser?.role === "superadmin" || currentUser?.role === "manager" ? (
+              <AppLayout user={currentUser} onLogout={handleLogout}>
+                {renderPage(<CellGroupsManagement workers={workers} />)}
+              </AppLayout>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/assets"
+          element={
+            currentUser?.role === "superadmin" || currentUser?.role === "manager" ? (
+              <AppLayout user={currentUser} onLogout={handleLogout}>
+                {renderPage(<AssetManagementScreen workers={workers} />)}
+              </AppLayout>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/discipleship"
+          element={
+            currentUser?.role === "superadmin" || currentUser?.role === "manager" ? (
+              <AppLayout user={currentUser} onLogout={handleLogout}>
+                {renderPage(<DiscipleshipTracker workers={workers} />)}
               </AppLayout>
             ) : (
               <Navigate to="/" replace />

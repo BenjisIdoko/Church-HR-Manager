@@ -9,6 +9,8 @@ import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Toolti
 import { AttendanceRecord } from "../types/models";
 import { exportToCSV } from "../utils/tableUtils";
 
+import { downloadCSV, printReport } from "../utils/exportUtils";
+
 const COLORS = ['hsl(142, 76%, 36%)', 'hsl(45, 93%, 47%)', 'hsl(0, 84%, 60%)'];
 
 interface ReportsAnalyticsProps {
@@ -50,6 +52,41 @@ export function ReportsAnalytics({ attendanceRecords, loading = false }: Reports
       departmentFilter === "all" || record.department === departmentFilter;
     return matchesDate && matchesDepartment;
   });
+
+  const handleCSVExport = () => {
+    downloadCSV("attendance_report.csv", filteredRecords as any);
+  };
+
+  const handlePrintPDF = () => {
+    const rowsHtml = filteredRecords
+      .map(
+        (r) => `
+      <tr>
+        <td>${r.workerName}</td>
+        <td>${r.department}</td>
+        <td>${r.date}</td>
+        <td><span class="badge badge-${r.status}">${r.status.toUpperCase()}</span></td>
+      </tr>
+    `
+      )
+      .join("");
+
+    const tableHtml = `
+      <table>
+        <thead>
+          <tr>
+            <th>Worker Name</th>
+            <th>Department</th>
+            <th>Service Date</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+    `;
+  };
 
   // Attendance rate by status
   const statusData = [
@@ -114,12 +151,20 @@ export function ReportsAnalytics({ attendanceRecords, loading = false }: Reports
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1>Reports & Analytics</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Reports & Analytics</h1>
           <p className="text-muted-foreground">
             {loading ? "Loading report data from the database..." : "Generate and analyze attendance reports"}
           </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button onClick={handleCSVExport} variant="outline" className="gap-2 text-xs">
+            <Download className="w-4 h-4" /> Export CSV
+          </Button>
+          <Button onClick={handlePrintPDF} className="bg-slate-900 text-white gap-2 text-xs">
+            <FileJson className="w-4 h-4" /> Print / Export PDF
+          </Button>
         </div>
       </div>
 
