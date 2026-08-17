@@ -97,8 +97,16 @@ export function CommandMenu({ open, onOpenChange, userRole = "superadmin", worke
                 >
                   <div className="flex items-center gap-2.5">
                     {worker.profileImage ? (
-                      <img src={worker.profileImage} alt={worker.name} className="h-6 w-6 rounded-full object-cover" />
-                    ) : (
+                      <img
+                        src={worker.profileImage}
+                        alt={worker.name}
+                        className="h-6 w-6 rounded-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    ) : null}
+                    {(!worker.profileImage) && (
                       <div className="h-6 w-6 rounded-full bg-[#c85a32]/10 text-[#c85a32] flex items-center justify-center font-bold text-xs">
                         {worker.name.charAt(0)}
                       </div>

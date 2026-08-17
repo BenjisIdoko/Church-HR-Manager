@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Worker } from "../types/models";
 import { sortData, SortConfig, exportToCSV } from "../utils/tableUtils";
+import { readAndCompressImage } from "../utils/imageUtils";
 
 interface UpdateHistoryEntry {
   workerId: string;
@@ -200,8 +201,8 @@ export function MemberDirectory({
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error("Image size must be less than 5MB");
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("Image size must be less than 10MB");
         return;
       }
       if (!file.type.startsWith("image/")) {
@@ -211,24 +212,34 @@ export function MemberDirectory({
 
       setUploading(true);
       try {
-        const formData = new FormData();
-        formData.append("image", file);
+        let imageUrl = "";
 
-        const response = await fetch("/api/upload-profile-image", {
-          method: "POST",
-          body: formData,
-        });
-        const result = await response.json();
-        if (!response.ok || !result.ok) {
-          throw new Error(result.message || 'Upload failed');
+        try {
+          const formData = new FormData();
+          formData.append("image", file);
+
+          const response = await fetch("/api/upload-profile-image", {
+            method: "POST",
+            body: formData,
+          });
+          const result = await response.json();
+          if (response.ok && result.ok && result.imageUrl) {
+            imageUrl = result.imageUrl;
+          }
+        } catch {
+          // Backend API unreachable or static Vercel deployment
+        }
+
+        if (!imageUrl) {
+          imageUrl = await readAndCompressImage(file);
         }
 
         if (selectedWorker) {
-          setSelectedWorker({ ...selectedWorker, profileImage: result.imageUrl });
+          setSelectedWorker({ ...selectedWorker, profileImage: imageUrl });
         }
-        toast.success("Profile image uploaded successfully");
+        toast.success("Profile image loaded successfully");
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to upload image");
+        toast.error(error instanceof Error ? error.message : "Failed to process image");
       } finally {
         setUploading(false);
       }

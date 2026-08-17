@@ -43,6 +43,7 @@ interface AppLayoutProps {
   user: {
     name: string;
     role: "superadmin" | "manager" | "member";
+    email?: string;
   };
   workers?: Worker[];
   onLogout: () => void;
@@ -277,9 +278,27 @@ export function AppLayout({ children, user, workers = [], onLogout }: AppLayoutP
               <div className="h-6 w-px bg-[#e7e2d8] mx-0.5 sm:mx-1" />
 
               <div className="flex items-center gap-2 sm:gap-3 pl-1">
-                <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-[#c85a32] text-white font-bold text-sm flex items-center justify-center shadow-xs">
-                  {user.name.charAt(0) || "U"}
-                </div>
+                {(() => {
+                  const userEmail = user.email || "";
+                  const currentUserWorker = workers.find(
+                    (w) => (userEmail && w.email.toLowerCase() === userEmail.toLowerCase()) || (user as any).workerId === w.id
+                  );
+                  const profileImage = currentUserWorker?.profileImage;
+                  return profileImage ? (
+                    <img
+                      src={profileImage}
+                      alt={user.name}
+                      className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl object-cover shadow-xs border border-[#e7e2d8]"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-[#c85a32] text-white font-bold text-sm flex items-center justify-center shadow-xs">
+                      {user.name.charAt(0) || "U"}
+                    </div>
+                  );
+                })()}
                 <div className="hidden md:block text-left">
                   <p className="text-xs font-semibold text-[#1c1917] leading-tight max-w-[160px] truncate">{user.name}</p>
                   <p className="text-[10px] font-medium text-[#78716c] capitalize leading-tight">{roleLabel}</p>

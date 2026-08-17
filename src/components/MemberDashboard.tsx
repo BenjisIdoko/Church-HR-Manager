@@ -1,19 +1,27 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { User as UserIcon, Save, ShieldCheck, Plus, X, Building2 } from "lucide-react";
+import { User as UserIcon, Save, ShieldCheck, Plus, X, Building2, Camera, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { User, Worker } from "../types/models";
+import { readAndCompressImage } from "../utils/imageUtils";
 
 interface MemberDashboardProps {
   user: User;
   worker?: Worker;
   departments?: string[];
-  onUpdateProfile: (updated: { name: string; email: string; phone: string; department?: string; departments?: string[] }) => Promise<void>;
+  onUpdateProfile: (updated: {
+    name: string;
+    email: string;
+    phone: string;
+    department?: string;
+    departments?: string[];
+    profileImage?: string;
+  }) => Promise<void>;
 }
 
 const DEFAULT_DEPARTMENTS = [
@@ -37,7 +45,10 @@ export function MemberDashboard({ user, worker, departments = DEFAULT_DEPARTMENT
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [phone, setPhone] = useState(worker?.phone ?? "");
-  
+  const [profileImage, setProfileImage] = useState(worker?.profileImage ?? "");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Parse initial departments list
   const initialDepts = worker?.department
     ? worker.department.split(",").map((d) => d.trim()).filter(Boolean)
@@ -64,6 +75,47 @@ export function MemberDashboard({ user, worker, departments = DEFAULT_DEPARTMENT
     setSelectedDepts(selectedDepts.filter((d) => d !== deptName));
   };
 
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image file size must be less than 10MB");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      let imageUrl = "";
+
+      try {
+        const formData = new FormData();
+        formData.append("image", file);
+        const response = await fetch("/api/upload-profile-image", {
+          method: "POST",
+          body: formData,
+        });
+        const result = await response.json();
+        if (response.ok && result.ok && result.imageUrl) {
+          imageUrl = result.imageUrl;
+        }
+      } catch {
+        // Fallback for static deployments (Vercel) or offline mode
+      }
+
+      if (!imageUrl) {
+        imageUrl = await readAndCompressImage(file);
+      }
+
+      setProfileImage(imageUrl);
+      toast.success("Profile photo loaded! Click 'Save Profile Updates' to persist.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to process image.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSave = async () => {
     try {
       const departmentString = selectedDepts.join(", ");
@@ -73,8 +125,9 @@ export function MemberDashboard({ user, worker, departments = DEFAULT_DEPARTMENT
         phone,
         department: departmentString,
         departments: selectedDepts,
+        profileImage,
       });
-      toast.success("Your profile and department details have been updated!");
+      toast.success("Your profile, photo, and department details have been updated!");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update your profile.");
     }
@@ -88,7 +141,7 @@ export function MemberDashboard({ user, worker, departments = DEFAULT_DEPARTMENT
         <div>
           <h1 className="text-2xl font-bold text-[#1c1917]">Volunteer Profile</h1>
           <p className="text-sm text-muted-foreground">
-            Update your contact details and active department assignments.
+            Update your profile photo, contact details, and active department assignments.
           </p>
         </div>
         <Button asChild variant="secondary" className="bg-[#c85a32] text-white hover:bg-[#b04b27] self-start sm:self-auto">
@@ -104,12 +157,80 @@ export function MemberDashboard({ user, worker, departments = DEFAULT_DEPARTMENT
             </div>
             <div>
               <CardTitle className="text-lg">Personal & Workforce Profile</CardTitle>
-              <CardDescription>You can update your name, email, phone number, and assigned departments.</CardDescription>
+              <CardDescription>Update your avatar photo, email, phone number, and assigned departments.</CardDescription>
             </div>
           </div>
         </CardHeader>
 
         <CardContent className="space-y-6">
+          {/* Profile Photo Section */}
+          <div className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-slate-50 rounded-2xl border border-slate-200/80">
+            <div className="relative shrink-0">
+              {profileImage ? (
+                <img
+                  src={profileImage}
+                  alt={name}
+                  className="h-24 w-24 rounded-2xl object-cover border-4 border-white shadow-md"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    setProfileImage("");
+                  }}
+                />
+              ) : (
+                <div className="h-24 w-24 rounded-2xl bg-[#c85a32]/10 border-4 border-white shadow-md flex items-center justify-center text-[#c85a32]">
+                  <UserIcon className="h-10 w-10" />
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute -bottom-1 -right-1 rounded-xl bg-[#c85a32] p-2 text-white hover:bg-[#b04b27] shadow-sm transition-transform active:scale-95"
+                disabled={uploading}
+                title="Upload Photo"
+              >
+                <Camera className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-center sm:text-left flex-1">
+              <Label className="text-sm font-semibold text-slate-800">Profile Photo</Label>
+              <p className="text-xs text-slate-500 max-w-md">
+                Upload a JPEG, PNG, or WebP picture. Images are automatically compressed and saved to your profile.
+              </p>
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="rounded-xl border-slate-200 hover:bg-slate-100 text-xs"
+                >
+                  <Upload className="h-3.5 w-3.5 mr-1.5" />
+                  {uploading ? "Processing..." : "Select New Photo"}
+                </Button>
+                {profileImage && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setProfileImage("")}
+                    className="rounded-xl text-slate-500 hover:text-red-600 text-xs"
+                  >
+                    Remove Photo
+                  </Button>
+                )}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                className="hidden"
+                onChange={handleImageFileChange}
+              />
+            </div>
+          </div>
+
           <div className="grid gap-5 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="member-name" className="text-xs font-semibold uppercase text-slate-600">Full Name</Label>
@@ -230,7 +351,7 @@ export function MemberDashboard({ user, worker, departments = DEFAULT_DEPARTMENT
 
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-slate-100">
             <p className="text-xs text-slate-500">
-              Your contact info and department assignments update live across church records.
+              Your profile photo, contact info, and department assignments update live across church records.
             </p>
             <Button onClick={handleSave} className="bg-[#c85a32] text-white hover:bg-[#b04b27] rounded-xl px-6">
               <Save className="h-4 w-4 mr-2" />
@@ -254,7 +375,7 @@ export function MemberDashboard({ user, worker, departments = DEFAULT_DEPARTMENT
         </CardHeader>
         <CardContent>
           <p className="text-xs text-slate-600 leading-relaxed">
-            As a volunteer, you have full control over updating your email address, phone number, and active department assignments. Deleting worker history is restricted to Super Admin access.
+            As a volunteer, you have full control over updating your profile picture, email address, phone number, and active department assignments. Deleting worker history is restricted to Super Admin access.
           </p>
         </CardContent>
       </Card>
