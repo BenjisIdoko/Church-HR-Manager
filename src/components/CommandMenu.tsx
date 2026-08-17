@@ -56,7 +56,7 @@ export function CommandMenu({ open, onOpenChange, userRole = "superadmin" }: Com
     { title: "Service Planner", icon: Music, path: "/services", roles: ["superadmin", "manager"] },
     { title: "Church Calendar", icon: Calendar, path: "/calendar", roles: ["superadmin", "manager"] },
     { title: "Kiosk Check-In", icon: QrCode, path: "/kiosk", roles: ["superadmin", "manager", "member"] },
-    { title: "Servant Directory", icon: Users, path: "/workers", roles: ["superadmin", "manager"] },
+    { title: "Volunteer Directory", icon: Users, path: "/workers", roles: ["superadmin", "manager"] },
     { title: "Visitors & Hospitality", icon: UserPlus, path: "/visitors", roles: ["superadmin", "manager"] },
     { title: "Cell Groups & Care", icon: Home, path: "/groups", roles: ["superadmin", "manager"] },
     { title: "Asset Management", icon: Package, path: "/assets", roles: ["superadmin", "manager"] },

@@ -74,7 +74,7 @@ export function AdminDashboard({
 
   const overviewCards = [
     {
-      title: "Servant Leaders",
+      title: "Volunteers",
       value: activeWorkers.length,
       trend: "Active Team",
       subtitle: `Across ${departmentCount} ministry teams`,

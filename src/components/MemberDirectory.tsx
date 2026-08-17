@@ -67,14 +67,27 @@ export function MemberDirectory({
   );
 
   const filteredWorkers = safeWorkers.filter((worker) => {
+    const query = searchQuery.trim().toLowerCase();
     const matchesSearch =
-      worker.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      worker.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      worker.email.toLowerCase().includes(searchQuery.toLowerCase());
+      !query ||
+      (worker.name || "").toLowerCase().includes(query) ||
+      (worker.id || "").toLowerCase().includes(query) ||
+      (worker.email || "").toLowerCase().includes(query) ||
+      (worker.phone || "").toLowerCase().includes(query) ||
+      (worker.department || "").toLowerCase().includes(query) ||
+      (worker.role || "").toLowerCase().includes(query);
 
-    const matchesDepartment = departmentFilter === "all" || worker.department === departmentFilter;
-    const matchesStatus = statusFilter === "all" || worker.status === statusFilter;
-    const matchesRole = roleFilter === "all" || worker.role === roleFilter;
+    const matchesDepartment =
+      departmentFilter === "all" ||
+      (worker.department || "").trim().toLowerCase() === departmentFilter.trim().toLowerCase();
+
+    const matchesStatus =
+      statusFilter === "all" ||
+      (worker.status || "").trim().toLowerCase() === statusFilter.trim().toLowerCase();
+
+    const matchesRole =
+      roleFilter === "all" ||
+      (worker.role || "").trim().toLowerCase() === roleFilter.trim().toLowerCase();
 
     return matchesSearch && matchesDepartment && matchesStatus && matchesRole;
   });
@@ -105,7 +118,7 @@ export function MemberDirectory({
   const handleExport = () => {
     exportToCSV(
       sortedWorkers,
-      `workers-directory_${new Date().toISOString().split("T")[0]}`,
+      `volunteer-directory_${new Date().toISOString().split("T")[0]}`,
       ["id", "name", "email", "department", "role", "status"],
     );
   };
@@ -118,65 +131,64 @@ export function MemberDirectory({
     setSortConfig(null);
   };
 
-  const handleSave = async () => {
-    if (!selectedWorker) return;
-    try {
-      await onUpdateWorker(selectedWorker);
-      toast.success("Worker update saved and history recorded.");
-      setSelectedWorker(null);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to save worker update.");
+  const handleSaveWorker = async () => {
+    if (selectedWorker) {
+      try {
+        await onUpdateWorker(selectedWorker);
+        toast.success("Volunteer update saved and history recorded.");
+        setSelectedWorker(null);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to save volunteer update.");
+      }
     }
   };
 
-  const handleStartEdit = (worker: Worker) => {
+  const handleSelectWorker = (worker: Worker) => {
     setSelectedWorker(worker);
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image size must be less than 5MB");
-      return;
-    }
-
-    if (!file.type.startsWith('image/')) {
-      toast.error("Only image files are allowed");
-      return;
-    }
-
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('image', file);
-
-      const response = await fetch('/api/upload-profile-image', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const result = await response.json();
-      if (!response.ok || !result.ok) {
-        throw new Error(result.message || 'Upload failed');
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("Image size must be less than 5MB");
+        return;
+      }
+      if (!file.type.startsWith("image/")) {
+        toast.error("Only image files are allowed");
+        return;
       }
 
-      if (selectedWorker) {
-        setSelectedWorker({ ...selectedWorker, profileImage: result.imageUrl });
+      setUploading(true);
+      try {
+        const formData = new FormData();
+        formData.append("image", file);
+
+        const response = await fetch("/api/upload-profile-image", {
+          method: "POST",
+          body: formData,
+        });
+        const result = await response.json();
+        if (!response.ok || !result.ok) {
+          throw new Error(result.message || 'Upload failed');
+        }
+
+        if (selectedWorker) {
+          setSelectedWorker({ ...selectedWorker, profileImage: result.imageUrl });
+        }
+        toast.success("Profile image uploaded successfully");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to upload image");
+      } finally {
+        setUploading(false);
       }
-      toast.success("Profile image uploaded successfully");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to upload image");
-    } finally {
-      setUploading(false);
     }
   };
 
-  const pageTitle = "Workers Directory";
-  const pageDescription = "Search, filter and review worker records with change history in one place.";
-  const sectionTitle = "Directory Overview";
-  const sectionDescription = "Search, filter and review worker records with change history in one place.";
+  const pageTitle = "Volunteer Directory";
+  const pageDescription = "Search, filter and review volunteer records with change history in one place.";
+  const sectionTitle = "Volunteer Overview";
+  const sectionDescription = "Search, filter and review volunteer records with change history in one place.";
 
   return (
     <div className="space-y-6">
@@ -199,9 +211,9 @@ export function MemberDirectory({
 
       <Card>
         <CardHeader>
-          <CardTitle>Directory Overview</CardTitle>
+          <CardTitle>Volunteer Overview</CardTitle>
           <CardDescription>
-            Search, filter and review worker records with change history in one place.
+            Search, filter and review volunteer records with change history in one place.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -209,7 +221,7 @@ export function MemberDirectory({
             <div>
               <Label>Search</Label>
               <Input
-                placeholder="Search by name, ID, or email"
+                placeholder="Search by name, ID, department, or email"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -313,7 +325,7 @@ export function MemberDirectory({
                       </TableCell>
                       {editable && (
                         <TableCell>
-                          <Button variant="outline" size="sm" onClick={() => handleStartEdit(worker)}>
+                          <Button variant="outline" size="sm" onClick={() => handleSelectWorker(worker)}>
                             <Edit3 className="h-4 w-4 mr-2" />
                             Edit
                           </Button>
@@ -391,7 +403,7 @@ export function MemberDirectory({
                           id="edit-profile-image"
                           accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
                           className="hidden"
-                          onChange={handleImageUpload}
+                          onChange={handleFileChange}
                         />
                       </div>
                     </div>
@@ -485,7 +497,7 @@ export function MemberDirectory({
                       <Button variant="outline" onClick={() => setSelectedWorker(null)}>
                         Cancel
                       </Button>
-                      <Button onClick={handleSave}>
+                      <Button onClick={handleSaveWorker}>
                         <Edit3 className="h-4 w-4 mr-2" />
                         Save Changes
                       </Button>
