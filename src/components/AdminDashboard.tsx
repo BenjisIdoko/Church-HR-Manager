@@ -47,21 +47,24 @@ export function AdminDashboard({
   onRefresh,
 }: AdminDashboardProps) {
   const navigate = useNavigate();
-  const activeWorkers = workers.filter((worker) => worker.status === "active");
-  const latestDate = getLatestAttendanceDate(attendanceRecords);
-  const latestRecords = latestDate ? attendanceRecords.filter((record) => record.date === latestDate) : [];
+  const safeWorkers = Array.isArray(workers) ? workers : [];
+  const safeAttendanceRecords = Array.isArray(attendanceRecords) ? attendanceRecords : [];
+
+  const activeWorkers = safeWorkers.filter((worker) => worker.status === "active");
+  const latestDate = getLatestAttendanceDate(safeAttendanceRecords);
+  const latestRecords = latestDate ? safeAttendanceRecords.filter((record) => record.date === latestDate) : [];
   const presentToday = latestRecords.filter((record) => record.status === "present").length;
   const lateToday = latestRecords.filter((record) => record.status === "late").length;
   const absentToday = latestRecords.filter((record) => record.status === "absent").length;
   const attendanceRate =
     activeWorkers.length > 0 ? Math.round(((presentToday + lateToday) / activeWorkers.length) * 100) : 0;
-  const departmentCount = new Set(workers.map((worker) => worker.department)).size;
+  const departmentCount = new Set(safeWorkers.map((worker) => worker.department)).size;
 
-  const trendData = Array.from(new Set(attendanceRecords.map((record) => record.date)))
+  const trendData = Array.from(new Set(safeAttendanceRecords.map((record) => record.date)))
     .sort((a, b) => a.localeCompare(b))
     .slice(-7)
     .map((date) => {
-      const recordsForDate = attendanceRecords.filter((record) => record.date === date);
+      const recordsForDate = safeAttendanceRecords.filter((record) => record.date === date);
       return {
         date: new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
         present: recordsForDate.filter((record) => record.status === "present" || record.status === "late").length,

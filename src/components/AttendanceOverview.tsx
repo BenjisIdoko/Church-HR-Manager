@@ -17,9 +17,11 @@ interface AttendanceOverviewProps {
 
 export function AttendanceOverview({ attendanceRecords, loading = false }: AttendanceOverviewProps) {
   const navigate = useNavigate();
+  const safeRecords = Array.isArray(attendanceRecords) ? attendanceRecords : [];
+
   const latestDate = useMemo(
-    () => attendanceRecords.reduce((latest, record) => (record.date > latest ? record.date : latest), ""),
-    [attendanceRecords],
+    () => safeRecords.reduce((latest, record) => (record.date > latest ? record.date : latest), ""),
+    [safeRecords],
   );
   const [dateFilter, setDateFilter] = useState(latestDate || new Date().toISOString().split('T')[0]);
   const [departmentFilter, setDepartmentFilter] = useState("all");
@@ -29,14 +31,14 @@ export function AttendanceOverview({ attendanceRecords, loading = false }: Atten
 
   useEffect(() => {
     if (latestDate) {
-      setDateFilter((current) => (attendanceRecords.some((record) => record.date === current) ? current : latestDate));
+      setDateFilter((current) => (safeRecords.some((record) => record.date === current) ? current : latestDate));
     }
-  }, [attendanceRecords, latestDate]);
+  }, [safeRecords, latestDate]);
 
-  const departments = Array.from(new Set(attendanceRecords.map((r) => r.department)));
+  const departments = Array.from(new Set(safeRecords.map((r) => r.department)));
 
   // Apply filters
-  const filteredRecords = attendanceRecords.filter((record) => {
+  const filteredRecords = safeRecords.filter((record) => {
     const matchesDate = record.date === dateFilter;
     const matchesDepartment = departmentFilter === "all" || record.department === departmentFilter;
     const matchesStatus = statusFilter === "all" || record.status === statusFilter;

@@ -43,14 +43,30 @@ export function MemberDirectory({
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const safeWorkers = Array.isArray(workers) ? workers : [];
+  const safeDepartments = Array.isArray(departments) ? departments : [];
+  const safeUpdateHistory = Array.isArray(updateHistory) ? updateHistory : [];
+
   const departmentOptions = useMemo(
-    () => Array.from(new Set([...departments, ...workers.map((w) => w.department)])),
-    [departments, workers],
+    () =>
+      Array.from(
+        new Set([
+          ...safeDepartments,
+          ...safeWorkers.map((w) => w?.department).filter((d): d is string => Boolean(d)),
+        ]),
+      ),
+    [safeDepartments, safeWorkers],
   );
 
-  const roleOptions = useMemo(() => Array.from(new Set(workers.map((w) => w.role))), [workers]);
+  const roleOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(safeWorkers.map((w) => w?.role).filter((r): r is string => Boolean(r))),
+      ),
+    [safeWorkers],
+  );
 
-  const filteredWorkers = workers.filter((worker) => {
+  const filteredWorkers = safeWorkers.filter((worker) => {
     const matchesSearch =
       worker.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       worker.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -485,7 +501,7 @@ export function MemberDirectory({
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {updateHistory.filter((entry) => entry.workerId === selectedWorker.id).slice(0, 5).map((entry, index) => (
+                    {safeUpdateHistory.filter((entry) => entry.workerId === selectedWorker.id).slice(0, 5).map((entry, index) => (
                       <div key={index} className="rounded-2xl bg-slate-50 p-4">
                         <div className="flex items-center justify-between gap-2 text-sm text-slate-600">
                           <span>{entry.timestamp}</span>
@@ -494,7 +510,7 @@ export function MemberDirectory({
                         <p className="text-sm text-slate-700 mt-2">{entry.workerName}</p>
                       </div>
                     ))}
-                    {updateHistory.filter((entry) => entry.workerId === selectedWorker.id).length === 0 && (
+                    {safeUpdateHistory.filter((entry) => entry.workerId === selectedWorker.id).length === 0 && (
                       <p className="text-sm text-slate-500">No history tracked yet for this member.</p>
                     )}
                   </CardContent>
@@ -517,10 +533,10 @@ export function MemberDirectory({
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {updateHistory.length === 0 ? (
+                {safeUpdateHistory.length === 0 ? (
                   <p className="text-sm text-slate-500">No update history recorded yet.</p>
                 ) : (
-                  updateHistory.map((entry, index) => (
+                  safeUpdateHistory.map((entry, index) => (
                     <div key={index} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600">
                         <span>{entry.timestamp}</span>

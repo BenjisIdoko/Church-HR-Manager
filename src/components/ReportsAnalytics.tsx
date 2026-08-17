@@ -19,9 +19,11 @@ interface ReportsAnalyticsProps {
 }
 
 export function ReportsAnalytics({ attendanceRecords, loading = false }: ReportsAnalyticsProps) {
+  const safeRecords = Array.isArray(attendanceRecords) ? attendanceRecords : [];
+
   const latestDate = useMemo(
-    () => attendanceRecords.reduce((latest, record) => (record.date > latest ? record.date : latest), ""),
-    [attendanceRecords],
+    () => safeRecords.reduce((latest, record) => (record.date > latest ? record.date : latest), ""),
+    [safeRecords],
   );
   const defaultStartDate = useMemo(() => {
     if (!latestDate) return new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -40,10 +42,10 @@ export function ReportsAnalytics({ attendanceRecords, loading = false }: Reports
     }
   }, [defaultStartDate, latestDate]);
 
-  const departments = Array.from(new Set(attendanceRecords.map((r) => r.department)));
+  const departments = Array.from(new Set(safeRecords.map((r) => r.department)));
 
   // Filter records by date range and department
-  const filteredRecords = attendanceRecords.filter((record) => {
+  const filteredRecords = safeRecords.filter((record) => {
     const recordDate = new Date(record.date);
     const start = new Date(startDate);
     const end = new Date(endDate);

@@ -48,31 +48,35 @@ const MOCK_WORKERS: Worker[] = [
 ];
 
 const MOCK_ATTENDANCE: AttendanceRecord[] = [
-  { id: 1, workerId: "W001", workerName: "David Okoh", date: new Date().toISOString().split("T")[0], status: "present", time: "07:45 AM" },
-  { id: 2, workerId: "W002", workerName: "Grace Samuel", date: new Date().toISOString().split("T")[0], status: "present", time: "07:50 AM" },
-  { id: 3, workerId: "W003", workerName: "Joshua Mark", date: new Date().toISOString().split("T")[0], status: "late", time: "08:15 AM" },
-  { id: 4, workerId: "W004", workerName: "Sarah John", date: new Date().toISOString().split("T")[0], status: "absent", time: "-" },
+  { id: "1", workerId: "W001", workerName: "David Okoh", department: "Ushering", date: new Date().toISOString().split("T")[0], status: "present" },
+  { id: "2", workerId: "W002", workerName: "Grace Samuel", department: "Choir", date: new Date().toISOString().split("T")[0], status: "present" },
+  { id: "3", workerId: "W003", workerName: "Joshua Mark", department: "Media & Tech", date: new Date().toISOString().split("T")[0], status: "late" },
+  { id: "4", workerId: "W004", workerName: "Sarah John", department: "Children Ministry", date: new Date().toISOString().split("T")[0], status: "absent" },
 ];
 
 async function apiRequest<T>(input: string, init?: RequestInit): Promise<T> {
   try {
     const response = await fetch(input, init);
-    let payload: T | ApiErrorPayload;
-
-    try {
-      payload = await response.json();
-    } catch {
-      payload = {};
-    }
+    const contentType = response.headers.get("content-type");
 
     if (!response.ok) {
-      const message =
-        (payload as ApiErrorPayload).message ||
-        (payload as ApiErrorPayload).error ||
-        "Request failed";
+      let message = "Request failed";
+      if (contentType && contentType.includes("application/json")) {
+        try {
+          const payload = (await response.json()) as ApiErrorPayload;
+          message = payload.message || payload.error || message;
+        } catch {
+          // ignore
+        }
+      }
       throw new Error(message);
     }
 
+    if (!contentType || !contentType.includes("application/json")) {
+      throw new Error(`Response from ${input} is not JSON`);
+    }
+
+    const payload = await response.json();
     return payload as T;
   } catch (error) {
     console.warn(`API call to ${input} failed, falling back:`, error);
@@ -111,7 +115,8 @@ export async function loginUser(identifier: string, password: string): Promise<U
 
 export async function fetchWorkers(): Promise<Worker[]> {
   try {
-    return await apiRequest<Worker[]>("/api/workers");
+    const data = await apiRequest<Worker[]>("/api/workers");
+    return Array.isArray(data) ? data : MOCK_WORKERS;
   } catch {
     return MOCK_WORKERS;
   }
@@ -119,7 +124,8 @@ export async function fetchWorkers(): Promise<Worker[]> {
 
 export async function fetchAttendance(): Promise<AttendanceRecord[]> {
   try {
-    return await apiRequest<AttendanceRecord[]>("/api/attendance");
+    const data = await apiRequest<AttendanceRecord[]>("/api/attendance");
+    return Array.isArray(data) ? data : MOCK_ATTENDANCE;
   } catch {
     return MOCK_ATTENDANCE;
   }
@@ -127,7 +133,16 @@ export async function fetchAttendance(): Promise<AttendanceRecord[]> {
 
 export async function fetchKpis(): Promise<KpiResponse> {
   try {
-    return await apiRequest<KpiResponse>("/api/kpis");
+    const data = await apiRequest<KpiResponse>("/api/kpis");
+    if (data && typeof data === "object") {
+      return {
+        totalWorkers: data.totalWorkers ?? 5,
+        attendanceToday: data.attendanceToday ?? 3,
+        absent: data.absent ?? 1,
+        lastSync: data.lastSync ?? new Date().toISOString(),
+      };
+    }
+    throw new Error("Invalid KPI payload");
   } catch {
     return {
       totalWorkers: 5,
@@ -206,7 +221,12 @@ export interface ClockInRecord {
 }
 
 export async function getClockInsByDate(date: string): Promise<ClockInRecord[]> {
-  return apiRequest<ClockInRecord[]>(`/api/clock-in/date/${date}`);
+  try {
+    const data = await apiRequest<ClockInRecord[]>(`/api/clock-in/date/${date}`);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }
 
 export interface WorkerClockStatus {
@@ -266,7 +286,12 @@ export async function updateClockInSettings(settings: Partial<ClockInSettings>):
 
 // Visitors APIs
 export async function fetchVisitors(): Promise<Visitor[]> {
-  return apiRequest<Visitor[]>("/api/visitors");
+  try {
+    const data = await apiRequest<Visitor[]>("/api/visitors");
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function createVisitor(visitor: Partial<Visitor>): Promise<{ ok: boolean; id: number }> {
@@ -292,7 +317,12 @@ export async function deleteVisitor(id: number): Promise<{ ok: boolean }> {
 }
 
 export async function fetchVisitorFollowups(visitorId: number): Promise<VisitorFollowup[]> {
-  return apiRequest<VisitorFollowup[]>(`/api/visitors/${visitorId}/followups`);
+  try {
+    const data = await apiRequest<VisitorFollowup[]>(`/api/visitors/${visitorId}/followups`);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function addVisitorFollowup(visitorId: number, data: Partial<VisitorFollowup>): Promise<{ ok: boolean }> {
@@ -305,7 +335,12 @@ export async function addVisitorFollowup(visitorId: number, data: Partial<Visito
 
 // Cell Group APIs
 export async function fetchCellGroups(): Promise<CellGroup[]> {
-  return apiRequest<CellGroup[]>("/api/groups");
+  try {
+    const data = await apiRequest<CellGroup[]>("/api/groups");
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function createCellGroup(group: Partial<CellGroup>): Promise<{ ok: boolean; id: number }> {
@@ -331,7 +366,12 @@ export async function deleteCellGroup(id: number): Promise<{ ok: boolean }> {
 }
 
 export async function fetchGroupMembers(groupId: number): Promise<GroupMember[]> {
-  return apiRequest<GroupMember[]>(`/api/groups/${groupId}/members`);
+  try {
+    const data = await apiRequest<GroupMember[]>(`/api/groups/${groupId}/members`);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function addGroupMember(groupId: number, workerId: number, role = "member"): Promise<{ ok: boolean }> {
@@ -350,7 +390,12 @@ export async function removeGroupMember(groupId: number, workerId: number): Prom
 
 // Asset Management APIs
 export async function fetchAssets(): Promise<Asset[]> {
-  return apiRequest<Asset[]>("/api/assets");
+  try {
+    const data = await apiRequest<Asset[]>("/api/assets");
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function createAsset(asset: Partial<Asset>): Promise<{ ok: boolean; id: number }> {
@@ -376,7 +421,12 @@ export async function deleteAsset(id: number): Promise<{ ok: boolean }> {
 }
 
 export async function fetchAssetMaintenance(assetId: number): Promise<AssetMaintenance[]> {
-  return apiRequest<AssetMaintenance[]>(`/api/assets/${assetId}/maintenance`);
+  try {
+    const data = await apiRequest<AssetMaintenance[]>(`/api/assets/${assetId}/maintenance`);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function addAssetMaintenance(assetId: number, record: Partial<AssetMaintenance>): Promise<{ ok: boolean }> {
@@ -389,11 +439,21 @@ export async function addAssetMaintenance(assetId: number, record: Partial<Asset
 
 // Discipleship LMS APIs
 export async function fetchDiscipleshipCourses(): Promise<DiscipleshipCourse[]> {
-  return apiRequest<DiscipleshipCourse[]>("/api/discipleship/courses");
+  try {
+    const data = await apiRequest<DiscipleshipCourse[]>("/api/discipleship/courses");
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function fetchMemberCourseProgress(): Promise<MemberCourseProgress[]> {
-  return apiRequest<MemberCourseProgress[]>("/api/discipleship/progress");
+  try {
+    const data = await apiRequest<MemberCourseProgress[]>("/api/discipleship/progress");
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function updateMemberCourseProgress(workerId: number, courseId: number, status: string, completionDate?: string): Promise<{ ok: boolean }> {
@@ -406,7 +466,12 @@ export async function updateMemberCourseProgress(workerId: number, courseId: num
 
 // Service Plans APIs (Planning Center Services)
 export async function fetchServicePlans(): Promise<ServicePlan[]> {
-  return apiRequest<ServicePlan[]>("/api/service-plans");
+  try {
+    const data = await apiRequest<ServicePlan[]>("/api/service-plans");
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function createServicePlan(plan: Partial<ServicePlan>): Promise<{ ok: boolean; id: number }> {
@@ -418,7 +483,12 @@ export async function createServicePlan(plan: Partial<ServicePlan>): Promise<{ o
 }
 
 export async function fetchServiceItems(planId: number): Promise<ServiceItem[]> {
-  return apiRequest<ServiceItem[]>(`/api/service-plans/${planId}/items`);
+  try {
+    const data = await apiRequest<ServiceItem[]>(`/api/service-plans/${planId}/items`);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function addServiceItem(planId: number, item: Partial<ServiceItem>): Promise<{ ok: boolean }> {
@@ -430,7 +500,12 @@ export async function addServiceItem(planId: number, item: Partial<ServiceItem>)
 }
 
 export async function fetchServiceRoster(planId: number): Promise<ServiceRoster[]> {
-  return apiRequest<ServiceRoster[]>(`/api/service-plans/${planId}/roster`);
+  try {
+    const data = await apiRequest<ServiceRoster[]>(`/api/service-plans/${planId}/roster`);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function addServiceRoster(planId: number, roster: Partial<ServiceRoster>): Promise<{ ok: boolean }> {
@@ -443,7 +518,12 @@ export async function addServiceRoster(planId: number, roster: Partial<ServiceRo
 
 // Church Events & Calendar APIs (Planning Center Calendar)
 export async function fetchChurchEvents(): Promise<ChurchEvent[]> {
-  return apiRequest<ChurchEvent[]>("/api/calendar/events");
+  try {
+    const data = await apiRequest<ChurchEvent[]>("/api/calendar/events");
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function createChurchEvent(event: Partial<ChurchEvent>): Promise<{ ok: boolean; id: number }> {
@@ -462,7 +542,12 @@ export async function deleteChurchEvent(id: number): Promise<{ ok: boolean }> {
 
 // Kiosk Check-In APIs (Planning Center Check-Ins)
 export async function fetchKioskCheckins(): Promise<KioskCheckin[]> {
-  return apiRequest<KioskCheckin[]>("/api/kiosk/checkins");
+  try {
+    const data = await apiRequest<KioskCheckin[]>("/api/kiosk/checkins");
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function createKioskCheckin(data: Partial<KioskCheckin>): Promise<{ ok: boolean; id: number; securityCode: string }> {

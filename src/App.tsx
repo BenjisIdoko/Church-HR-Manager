@@ -68,9 +68,12 @@ export default function App() {
 
   const departments = useMemo(
     () =>
-      Array.from(new Set([...manualDepartments, ...workers.map((worker) => worker.department)])).sort((a, b) =>
-        a.localeCompare(b),
-      ),
+      Array.from(
+        new Set([
+          ...(Array.isArray(manualDepartments) ? manualDepartments : []),
+          ...(Array.isArray(workers) ? workers.map((worker) => worker?.department).filter((d): d is string => Boolean(d)) : []),
+        ]),
+      ).sort((a, b) => a.localeCompare(b)),
     [manualDepartments, workers],
   );
 
@@ -85,9 +88,9 @@ export default function App() {
         fetchKpis(),
       ]);
 
-      setWorkers(workersData);
-      setAttendanceRecords(attendanceData);
-      setLastSync(kpiData.lastSync);
+      setWorkers(Array.isArray(workersData) ? workersData : []);
+      setAttendanceRecords(Array.isArray(attendanceData) ? attendanceData : []);
+      setLastSync(kpiData?.lastSync || new Date().toISOString());
     } catch (error) {
       console.warn("API load error, using cached/mock data:", error);
     } finally {
@@ -108,10 +111,11 @@ export default function App() {
   };
 
   const handleUpdateWorker = async (updatedWorker: Worker) => {
-    const previousWorker = workers.find((item) => item.id === updatedWorker.id);
+    const safeWorkers = Array.isArray(workers) ? workers : [];
+    const previousWorker = safeWorkers.find((item) => item.id === updatedWorker.id);
     const persistedWorker = await saveWorker(updatedWorker);
 
-    setWorkers((prev) => prev.map((item) => (item.id === persistedWorker.id ? persistedWorker : item)));
+    setWorkers((prev) => (Array.isArray(prev) ? prev : []).map((item) => (item.id === persistedWorker.id ? persistedWorker : item)));
     if (currentUser?.role === "member" && currentUser.workerId === persistedWorker.id) {
       setCurrentUser({ ...currentUser, name: persistedWorker.name, email: persistedWorker.email });
     }
