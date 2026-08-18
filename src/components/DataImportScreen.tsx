@@ -305,8 +305,8 @@ W002,2026-08-16T09:15:00Z,clock-in,DEV-KIOSK-02`;
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl font-bold tracking-tight text-[#1c1917]">Import Ministry Records</h1>
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#ccfbf1] px-3 py-0.5 text-xs font-semibold text-[#0f766e]">
-              <Sparkles className="h-3.5 w-3.5 text-[#0d9488]" /> Bulk Upload Engine
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#e0e7ff] px-3 py-0.5 text-xs font-semibold text-[#3730a3]">
+              <Sparkles className="h-3.5 w-3.5 text-[#4f46e5]" /> Bulk Upload Engine
             </span>
           </div>
           <p className="mt-1 text-xs text-[#78716c]">
@@ -319,18 +319,18 @@ W002,2026-08-16T09:15:00Z,clock-in,DEV-KIOSK-02`;
             variant="outline"
             size="sm"
             onClick={() => downloadSampleCSV("workers")}
-            className="rounded-xl border-[#e7e2d8] text-xs hover:bg-[#f0fdf4] text-slate-700"
+            className="rounded-xl border-[#e7e2d8] text-xs hover:bg-[#e0e7ff]/30 text-slate-700"
           >
-            <Download className="h-3.5 w-3.5 mr-1.5 text-[#0d9488]" />
+            <Download className="h-3.5 w-3.5 mr-1.5 text-[#4f46e5]" />
             Volunteers CSV Template
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => downloadSampleCSV("attendance")}
-            className="rounded-xl border-[#e7e2d8] text-xs hover:bg-[#f0fdf4] text-slate-700"
+            className="rounded-xl border-[#e7e2d8] text-xs hover:bg-[#e0e7ff]/30 text-slate-700"
           >
-            <Download className="h-3.5 w-3.5 mr-1.5 text-[#0d9488]" />
+            <Download className="h-3.5 w-3.5 mr-1.5 text-[#4f46e5]" />
             Attendance CSV Template
           </Button>
         </div>
@@ -361,11 +361,11 @@ W002,2026-08-16T09:15:00Z,clock-in,DEV-KIOSK-02`;
               }}
               className={`p-4 rounded-2xl border text-left transition-all flex items-start gap-3.5 ${
                 importType === "attendance"
-                  ? "border-[#0d9488] bg-[#f0fdf4] shadow-xs ring-2 ring-[#0d9488]/20"
+                  ? "border-[#4f46e5] bg-[#e0e7ff]/30 shadow-xs ring-2 ring-[#4f46e5]/20"
                   : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
               }`}
             >
-              <div className={`p-2.5 rounded-xl ${importType === "attendance" ? "bg-[#0d9488] text-white" : "bg-slate-100 text-slate-600"}`}>
+              <div className={`p-2.5 rounded-xl ${importType === "attendance" ? "bg-[#4f46e5] text-white" : "bg-slate-100 text-slate-600"}`}>
                 <Calendar className="h-5 w-5" />
               </div>
               <div>
@@ -383,11 +383,11 @@ W002,2026-08-16T09:15:00Z,clock-in,DEV-KIOSK-02`;
               }}
               className={`p-4 rounded-2xl border text-left transition-all flex items-start gap-3.5 ${
                 importType === "workers"
-                  ? "border-[#0d9488] bg-[#f0fdf4] shadow-xs ring-2 ring-[#0d9488]/20"
+                  ? "border-[#4f46e5] bg-[#e0e7ff]/30 shadow-xs ring-2 ring-[#4f46e5]/20"
                   : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
               }`}
             >
-              <div className={`p-2.5 rounded-xl ${importType === "workers" ? "bg-[#0d9488] text-white" : "bg-slate-100 text-slate-600"}`}>
+              <div className={`p-2.5 rounded-xl ${importType === "workers" ? "bg-[#4f46e5] text-white" : "bg-slate-100 text-slate-600"}`}>
                 <Users className="h-5 w-5" />
               </div>
               <div>
@@ -405,11 +405,11 @@ W002,2026-08-16T09:15:00Z,clock-in,DEV-KIOSK-02`;
               }}
               className={`p-4 rounded-2xl border text-left transition-all flex items-start gap-3.5 ${
                 importType === "device"
-                  ? "border-[#0d9488] bg-[#f0fdf4] shadow-xs ring-2 ring-[#0d9488]/20"
+                  ? "border-[#4f46e5] bg-[#e0e7ff]/30 shadow-xs ring-2 ring-[#4f46e5]/20"
                   : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
               }`}
             >
-              <div className={`p-2.5 rounded-xl ${importType === "device" ? "bg-[#0d9488] text-white" : "bg-slate-100 text-slate-600"}`}>
+              <div className={`p-2.5 rounded-xl ${importType === "device" ? "bg-[#4f46e5] text-white" : "bg-slate-100 text-slate-600"}`}>
                 <Cpu className="h-5 w-5" />
               </div>
               <div>
@@ -427,10 +427,10 @@ W002,2026-08-16T09:15:00Z,clock-in,DEV-KIOSK-02`;
             onClick={() => fileInputRef.current?.click()}
             className={`border-2 border-dashed rounded-2xl p-8 sm:p-10 text-center transition-all cursor-pointer relative overflow-hidden ${
               isDragging
-                ? "border-[#0d9488] bg-[#f0fdf4] scale-[1.01] shadow-lg shadow-[#0d9488]/10"
+                ? "border-[#4f46e5] bg-[#e0e7ff]/30 scale-[1.01] shadow-lg shadow-[#4f46e5]/10"
                 : file
-                ? "border-[#0d9488]/60 bg-[#f0fdf4]/30"
-                : "border-slate-300 bg-gradient-to-b from-slate-50/50 to-white hover:border-[#0d9488] hover:bg-[#f0fdf4]/20"
+                ? "border-[#4f46e5]/60 bg-[#e0e7ff]/20"
+                : "border-slate-300 bg-gradient-to-b from-slate-50/50 to-white hover:border-[#4f46e5] hover:bg-[#e0e7ff]/10"
             }`}
           >
             <input
@@ -443,7 +443,7 @@ W002,2026-08-16T09:15:00Z,clock-in,DEV-KIOSK-02`;
             />
 
             <div className="flex flex-col items-center justify-center space-y-3">
-              <div className={`p-4 rounded-2xl transition-transform ${isDragging ? "scale-110 bg-[#0d9488] text-white" : "bg-[#ccfbf1] text-[#0d9488]"}`}>
+              <div className={`p-4 rounded-2xl transition-transform ${isDragging ? "scale-110 bg-[#4f46e5] text-white" : "bg-[#e0e7ff] text-[#4f46e5]"}`}>
                 <Upload className="h-8 w-8" />
               </div>
               <div>
@@ -467,9 +467,9 @@ W002,2026-08-16T09:15:00Z,clock-in,DEV-KIOSK-02`;
 
           {/* Active File Card */}
           {file && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border border-[#0d9488]/30 rounded-2xl bg-[#f0fdf4]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border border-[#4f46e5]/30 rounded-2xl bg-[#e0e7ff]/30">
               <div className="flex items-center gap-3.5 min-w-0">
-                <div className="p-3 bg-[#0d9488] text-white rounded-xl shrink-0">
+                <div className="p-3 bg-[#4f46e5] text-white rounded-xl shrink-0">
                   <FileSpreadsheet className="h-6 w-6" />
                 </div>
                 <div className="min-w-0">
@@ -482,12 +482,12 @@ W002,2026-08-16T09:15:00Z,clock-in,DEV-KIOSK-02`;
 
               <div className="flex items-center gap-2 shrink-0">
                 {status !== "validating" && !parseResult && (
-                  <Button onClick={handleValidate} size="sm" className="bg-[#0d9488] hover:bg-[#0f766e] text-white rounded-xl text-xs">
+                  <Button onClick={handleValidate} size="sm" className="bg-[#4f46e5] hover:bg-[#4338ca] text-white rounded-xl text-xs">
                     <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Validate & Preview
                   </Button>
                 )}
                 {status === "validating" && (
-                  <Badge className="bg-[#0d9488] text-white px-3 py-1 text-xs animate-pulse">
+                  <Badge className="bg-[#4f46e5] text-white px-3 py-1 text-xs animate-pulse">
                     Validating File...
                   </Badge>
                 )}
@@ -505,8 +505,8 @@ W002,2026-08-16T09:15:00Z,clock-in,DEV-KIOSK-02`;
         <div className="space-y-6">
           {/* Status Alert Banner */}
           {parseResult.success ? (
-            <Alert className="border-[#0d9488]/30 bg-[#f0fdf4] text-[#0f766e] rounded-2xl p-4">
-              <CheckCircle className="h-5 w-5 text-[#0d9488] shrink-0" />
+            <Alert className="border-[#4f46e5]/30 bg-[#e0e7ff]/30 text-[#3730a3] rounded-2xl p-4">
+              <CheckCircle className="h-5 w-5 text-[#4f46e5] shrink-0" />
               <AlertDescription className="text-xs font-semibold ml-2">
                 File validated successfully! {parseResult.summary.validRows} record(s) ready to import.
                 {parseResult.warnings.length > 0 && ` (${parseResult.warnings.length} warning(s) detected).`}
@@ -549,9 +549,9 @@ W002,2026-08-16T09:15:00Z,clock-in,DEV-KIOSK-02`;
                       <p className="text-xs text-rose-700 font-medium">Invalid Records</p>
                       <p className="text-2xl font-bold text-rose-600 mt-1">{parseResult.summary.invalidRows}</p>
                     </div>
-                    <div className="p-4 border border-teal-200 rounded-xl bg-teal-50/60">
-                      <p className="text-xs text-teal-700 font-medium">File Size</p>
-                      <p className="text-2xl font-bold text-teal-600 mt-1">{file ? (file.size / 1024).toFixed(1) : 0} KB</p>
+                    <div className="p-4 border border-indigo-200 rounded-xl bg-indigo-50/60">
+                      <p className="text-xs text-indigo-700 font-medium">File Size</p>
+                      <p className="text-2xl font-bold text-indigo-600 mt-1">{file ? (file.size / 1024).toFixed(1) : 0} KB</p>
                     </div>
                   </div>
                 </CardContent>
@@ -662,7 +662,7 @@ W002,2026-08-16T09:15:00Z,clock-in,DEV-KIOSK-02`;
             <Button
               onClick={handleConfirmImport}
               disabled={(!parseResult.success && importType !== "device") || importing}
-              className="flex-1 bg-[#0d9488] hover:bg-[#0f766e] text-white rounded-xl py-5 font-bold shadow-xs text-xs"
+              className="flex-1 bg-[#4f46e5] hover:bg-[#4338ca] text-white rounded-xl py-5 font-bold shadow-xs text-xs"
             >
               <CheckCircle className="h-4 w-4 mr-2" />
               {importing ? "Processing Import..." : `Confirm & Commit Import (${parseResult.summary.validRows} records)`}
@@ -678,7 +678,7 @@ W002,2026-08-16T09:15:00Z,clock-in,DEV-KIOSK-02`;
       <Card className="border-0 shadow-xs bg-white rounded-2xl overflow-hidden">
         <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
           <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-[#0d9488]" />
+            <FileText className="h-4 w-4 text-[#4f46e5]" />
             <CardTitle className="text-base font-bold text-[#1c1917]">File Format Requirements Guide</CardTitle>
           </div>
         </CardHeader>
@@ -686,7 +686,7 @@ W002,2026-08-16T09:15:00Z,clock-in,DEV-KIOSK-02`;
           <div className="grid md:grid-cols-3 gap-6 text-xs">
             <div className="space-y-2 p-4 rounded-xl bg-slate-50 border border-slate-200">
               <h4 className="font-bold text-[#1c1917] flex items-center gap-1.5 text-sm">
-                <Calendar className="h-4 w-4 text-[#0d9488]" /> Service Attendance
+                <Calendar className="h-4 w-4 text-[#4f46e5]" /> Service Attendance
               </h4>
               <ul className="space-y-1 text-slate-600">
                 <li><strong className="text-slate-800">Required:</strong> Worker ID, Worker Name, Date, Status</li>
@@ -698,7 +698,7 @@ W002,2026-08-16T09:15:00Z,clock-in,DEV-KIOSK-02`;
 
             <div className="space-y-2 p-4 rounded-xl bg-slate-50 border border-slate-200">
               <h4 className="font-bold text-[#1c1917] flex items-center gap-1.5 text-sm">
-                <Users className="h-4 w-4 text-[#0d9488]" /> Volunteers Roster
+                <Users className="h-4 w-4 text-[#4f46e5]" /> Volunteers Roster
               </h4>
               <ul className="space-y-1 text-slate-600">
                 <li><strong className="text-slate-800">Required:</strong> Worker ID, Name, Email, Phone Number, Department</li>
@@ -710,7 +710,7 @@ W002,2026-08-16T09:15:00Z,clock-in,DEV-KIOSK-02`;
 
             <div className="space-y-2 p-4 rounded-xl bg-slate-50 border border-slate-200">
               <h4 className="font-bold text-[#1c1917] flex items-center gap-1.5 text-sm">
-                <Cpu className="h-4 w-4 text-[#0d9488]" /> Hardware Devices
+                <Cpu className="h-4 w-4 text-[#4f46e5]" /> Hardware Devices
               </h4>
               <ul className="space-y-1 text-slate-600">
                 <li><strong className="text-slate-800">Required:</strong> Worker ID, Timestamp, Type</li>

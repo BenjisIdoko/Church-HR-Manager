@@ -3,33 +3,33 @@
 :root {
   --font-size: 14px;
   --font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
-  --background: #fbf9f5;
-  --foreground: #1c1917;
+  --background: #f8fafc;
+  --foreground: #0f172a;
   --card: #ffffff;
-  --card-foreground: #1c1917;
+  --card-foreground: #0f172a;
   --popover: #ffffff;
-  --popover-foreground: #1c1917;
-  --primary: #0d9488;
+  --popover-foreground: #0f172a;
+  --primary: #4f46e5;
   --primary-foreground: #ffffff;
-  --secondary: #f0fdf4;
-  --secondary-foreground: #0f766e;
-  --muted: #f4f1ea;
-  --muted-foreground: #78716c;
-  --accent: #ccfbf1;
-  --accent-foreground: #0f766e;
+  --secondary: #eef2ff;
+  --secondary-foreground: #4338ca;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #e0e7ff;
+  --accent-foreground: #3730a3;
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
-  --border: #e7e2d8;
-  --input: #e7e2d8;
-  --ring: #0d9488;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #4f46e5;
   --radius: 0.875rem;
-  --sidebar: #faf7f2;
-  --sidebar-foreground: #1c1917;
-  --sidebar-primary: #0d9488;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #4f46e5;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f0fdf4;
-  --sidebar-accent-foreground: #0d9488;
-  --sidebar-border: #e7e2d8;
+  --sidebar-accent: #eef2ff;
+  --sidebar-accent-foreground: #4f46e5;
+  --sidebar-border: #e2e8f0;
 }
 
 @layer base {
@@ -44,49 +44,49 @@
   }
 }
 
-/* Deep Emerald & Sage Teal Soft Ambient Gradient Design System */
+/* Light Mode Ambient Gradient System (Matching Login Screen Indigo/Sapphire/Pink Mesh Gradient) */
 
 .gradient-header {
-  background: linear-gradient(135deg, rgba(251, 249, 245, 0.95) 0%, rgba(204, 251, 241, 0.4) 50%, rgba(255, 255, 255, 0.95) 100%);
+  background: linear-gradient(135deg, rgba(248, 250, 252, 0.95) 0%, rgba(224, 231, 255, 0.5) 45%, rgba(253, 242, 248, 0.5) 100%);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
 
 .gradient-brand-icon {
-  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 50%, #0f766e 100%);
-  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.3);
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #2563eb 100%);
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.3);
 }
 
 .gradient-nav-active {
-  background: linear-gradient(135deg, #0d9488 0%, #059669 100%);
-  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
+  background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
 }
 
 .gradient-hero-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f7fee7/30 50%, #ccfbf1/40 100%);
-  border: 1px solid #e7e2d8;
-  box-shadow: 0 4px 20px -2px rgba(13, 148, 136, 0.05);
+  background: linear-gradient(135deg, #ffffff 0%, #eef2ff/60 50%, #fce7f3/40 100%);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px -2px rgba(79, 70, 229, 0.05);
 }
 
 .gradient-banner-volunteers {
-  background: linear-gradient(135deg, rgba(204, 251, 241, 0.6) 0%, rgba(251, 249, 245, 0.9) 60%, rgba(236, 253, 245, 0.6) 100%);
+  background: linear-gradient(135deg, rgba(224, 231, 255, 0.6) 0%, rgba(248, 250, 252, 0.9) 60%, rgba(253, 242, 248, 0.6) 100%);
 }
 
 .gradient-banner-analytics {
-  background: linear-gradient(135deg, rgba(204, 251, 241, 0.6) 0%, rgba(251, 249, 245, 0.9) 60%, rgba(224, 231, 255, 0.5) 100%);
+  background: linear-gradient(135deg, rgba(224, 231, 255, 0.6) 0%, rgba(248, 250, 252, 0.9) 60%, rgba(219, 234, 254, 0.5) 100%);
 }
 
 .gradient-brand-badge {
-  background: linear-gradient(135deg, #ccfbf1 0%, rgba(16, 185, 129, 0.15) 100%);
-  color: #0f766e;
-  border: 1px solid rgba(13, 148, 136, 0.18);
+  background: linear-gradient(135deg, #e0e7ff 0%, rgba(244, 114, 182, 0.15) 100%);
+  color: #3730a3;
+  border: 1px solid rgba(79, 70, 229, 0.18);
 }
 
-/* Warm Linen Panel Elevation */
+/* Panel Elevation */
 .warm-card {
   background-color: #ffffff;
-  border: 1px solid #e7e2d8;
-  box-shadow: 0 4px 20px -2px rgba(44, 39, 32, 0.04);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04);
   border-radius: var(--radius);
 }
 
@@ -94,6 +94,6 @@
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .warm-card-hover:hover {
-  border-color: #d6cebf;
-  box-shadow: 0 8px 24px -4px rgba(44, 39, 32, 0.08);
+  border-color: #cbd5e1;
+  box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.08);
 }

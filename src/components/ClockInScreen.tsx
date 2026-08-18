@@ -177,8 +177,8 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl font-bold tracking-tight text-[#1c1917]">Volunteer Clock-In Portal</h1>
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#ccfbf1] px-3 py-0.5 text-xs font-semibold text-[#0f766e]">
-              <Radio className="h-3.5 w-3.5 text-[#0d9488] animate-pulse" /> Live Geofence
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#e0e7ff] px-3 py-0.5 text-xs font-semibold text-[#3730a3]">
+              <Radio className="h-3.5 w-3.5 text-[#4f46e5] animate-pulse" /> Live Geofence
             </span>
           </div>
           <p className="mt-1 text-xs text-[#78716c]">
@@ -188,7 +188,7 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
 
         {/* Live Digital Clock Badge */}
         <div className="flex items-center gap-3 p-3 bg-white/80 backdrop-blur-xs rounded-xl border border-slate-200 shadow-2xs self-start md:self-auto">
-          <div className="p-2 bg-[#0d9488]/10 text-[#0d9488] rounded-lg">
+          <div className="p-2 bg-[#4f46e5]/10 text-[#4f46e5] rounded-lg">
             <Clock className="h-5 w-5" />
           </div>
           <div>
@@ -228,7 +228,7 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
             <div className="relative">
               {/* Outer Pulse Rings */}
               {isWithin && portalEnabled && !loading && (
-                <span className="absolute -inset-3 rounded-full bg-[#0d9488]/20 animate-ping pointer-events-none" />
+                <span className="absolute -inset-3 rounded-full bg-[#4f46e5]/20 animate-ping pointer-events-none" />
               )}
               <button
                 type="button"
@@ -238,7 +238,7 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
                   clockStatus?.isClockedIn
                     ? "bg-gradient-to-br from-rose-500 to-red-600 border-rose-300 text-white shadow-rose-500/30 hover:from-rose-600 hover:to-red-700"
                     : isWithin
-                    ? "bg-gradient-to-br from-[#0d9488] to-[#059669] border-emerald-300 text-white shadow-[#0d9488]/40 hover:from-[#0f766e] hover:to-[#047857] scale-105"
+                    ? "bg-gradient-to-br from-[#4f46e5] to-[#2563eb] border-indigo-300 text-white shadow-[#4f46e5]/40 hover:from-[#4338ca] hover:to-[#1d4ed8] scale-105"
                     : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
                 }`}
               >
@@ -301,7 +301,7 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Compass className="h-4 w-4 text-[#0d9488]" />
+                <Compass className="h-4 w-4 text-[#4f46e5]" />
                 <CardTitle className="text-sm font-bold text-[#1c1917]">GPS Geofence Proximity</CardTitle>
               </div>
               <Badge className={isWithin ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"}>
@@ -347,7 +347,7 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
         <Card className="border-0 shadow-xs bg-white rounded-2xl">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-[#0d9488]" />
+              <ShieldCheck className="h-4 w-4 text-[#4f46e5]" />
               <CardTitle className="text-sm font-bold text-[#1c1917]">Auditorium Geofence Specs</CardTitle>
             </div>
           </CardHeader>

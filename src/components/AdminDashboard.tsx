@@ -78,8 +78,8 @@ export function AdminDashboard({
       value: activeWorkers.length,
       trend: "Active Team",
       subtitle: `Across ${departmentCount} ministry teams`,
-      badgeColor: "bg-[#ccfbf1] text-[#0f766e]",
-      iconBg: "bg-[#0d9488] text-white shadow-xs",
+      badgeColor: "bg-[#e0e7ff] text-[#3730a3]",
+      iconBg: "gradient-brand-icon text-white shadow-xs",
       icon: Users,
     },
     {
@@ -118,8 +118,8 @@ export function AdminDashboard({
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight text-[#1c1917]">Ministry & Care Overview</h1>
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#ccfbf1] px-3 py-1 text-xs font-semibold text-[#0f766e]">
-              <Heart className="h-3.5 w-3.5 fill-[#0d9488] text-[#0d9488]" /> Active Fellowship
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#e0e7ff] px-3 py-1 text-xs font-semibold text-[#3730a3]">
+              <Heart className="h-3.5 w-3.5 fill-[#4f46e5] text-[#4f46e5]" /> Active Fellowship
             </span>
           </div>
           <p className="mt-1 text-xs text-[#78716c]">
@@ -133,13 +133,13 @@ export function AdminDashboard({
             variant="outline"
             className="border-[#e7e2d8] text-[#1c1917] hover:bg-[#f4f1ea] font-medium text-xs rounded-xl"
           >
-            <QrCode className="h-4 w-4 mr-1.5 text-[#0d9488]" />
+            <QrCode className="h-4 w-4 mr-1.5 text-[#4f46e5]" />
             Launch Kiosk
           </Button>
 
           <Button
             onClick={() => navigate("/import")}
-            className="bg-[#0d9488] hover:bg-[#0f766e] text-white font-medium text-xs rounded-xl shadow-xs transition-all"
+            className="bg-[#4f46e5] hover:bg-[#4338ca] text-white font-medium text-xs rounded-xl shadow-xs transition-all"
           >
             <Upload className="h-4 w-4 mr-1.5" />
             Import Roster CSV
@@ -199,8 +199,8 @@ export function AdminDashboard({
               </CardDescription>
             </div>
             <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1.5 text-xs font-medium text-[#0d9488]">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#0d9488]" /> Present
+              <span className="flex items-center gap-1.5 text-xs font-medium text-[#4f46e5]">
+                <span className="h-2.5 w-2.5 rounded-full bg-[#4f46e5]" /> Present
               </span>
               <span className="flex items-center gap-1.5 text-xs font-medium text-[#dc2626]">
                 <span className="h-2.5 w-2.5 rounded-full bg-[#dc2626]" /> Follow-up Needed
@@ -214,8 +214,8 @@ export function AdminDashboard({
                 <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorPresent" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0d9488" stopOpacity={0.25} />
-                      <stop offset="95%" stopColor="#0d9488" stopOpacity={0.0} />
+                      <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.0} />
                     </linearGradient>
                     <linearGradient id="colorAbsent" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#dc2626" stopOpacity={0.2} />
@@ -243,7 +243,7 @@ export function AdminDashboard({
                   <Area
                     type="monotone"
                     dataKey="present"
-                    stroke="#0d9488"
+                    stroke="#4f46e5"
                     strokeWidth={2.5}
                     fillOpacity={1}
                     fill="url(#colorPresent)"

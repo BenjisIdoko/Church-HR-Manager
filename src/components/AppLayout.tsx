@@ -125,7 +125,7 @@ export function AppLayout({ children, user, workers = [], onLogout }: AppLayoutP
               <p className="text-base font-bold tracking-tight text-[#1c1917]">
                 Church HR
               </p>
-              <p className="text-[11px] font-semibold tracking-wide text-[#0d9488]">
+              <p className="text-[11px] font-semibold tracking-wide text-[#4f46e5]">
                 Ministry & Care Suite
               </p>
             </div>

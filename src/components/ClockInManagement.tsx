@@ -108,8 +108,8 @@ export function ClockInManagement() {
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl font-bold tracking-tight text-[#1c1917]">Clock-In Portal Management</h1>
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#ccfbf1] px-3 py-0.5 text-xs font-semibold text-[#0f766e]">
-              <Sparkles className="h-3.5 w-3.5 text-[#0d9488]" /> Geofence & Hardware
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#e0e7ff] px-3 py-0.5 text-xs font-semibold text-[#3730a3]">
+              <Sparkles className="h-3.5 w-3.5 text-[#4f46e5]" /> Geofence & Hardware
             </span>
           </div>
           <p className="mt-1 text-xs text-[#78716c]">
@@ -120,7 +120,7 @@ export function ClockInManagement() {
         <Button
           onClick={handleSave}
           disabled={saving || loading}
-          className="bg-[#0d9488] hover:bg-[#0f766e] text-white rounded-xl font-bold text-xs shadow-xs shrink-0"
+          className="bg-[#4f46e5] hover:bg-[#4338ca] text-white rounded-xl font-bold text-xs shadow-xs shrink-0"
         >
           <Save className="h-4 w-4 mr-1.5" />
           {saving ? "Saving Changes..." : "Save Settings"}
@@ -139,7 +139,7 @@ export function ClockInManagement() {
           <Card className="border-0 shadow-xs bg-white rounded-2xl overflow-hidden">
             <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
               <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-[#0d9488]" />
+                <Clock className="h-4 w-4 text-[#4f46e5]" />
                 <CardTitle className="text-base font-bold text-[#1c1917]">Member Access & Branding</CardTitle>
               </div>
               <CardDescription className="text-xs text-slate-500">
@@ -180,7 +180,7 @@ export function ClockInManagement() {
                     id="portal-name"
                     value={settings.clock_in_portal_name}
                     onChange={(e) => updateSetting("clock_in_portal_name", e.target.value)}
-                    className="rounded-xl border-slate-200 focus:border-[#0d9488]"
+                    className="rounded-xl border-slate-200 focus:border-[#4f46e5]"
                   />
                 </div>
 
@@ -191,17 +191,17 @@ export function ClockInManagement() {
                     value={settings.clock_in_portal_description}
                     onChange={(e) => updateSetting("clock_in_portal_description", e.target.value)}
                     rows={3}
-                    className="rounded-xl border-slate-200 focus:border-[#0d9488]"
+                    className="rounded-xl border-slate-200 focus:border-[#4f46e5]"
                   />
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-[#0d9488]/30 bg-[#f0fdf4] p-4 flex items-start gap-3">
-                <Shield className="h-5 w-5 text-[#0d9488] shrink-0 mt-0.5" />
+              <div className="rounded-2xl border border-[#4f46e5]/30 bg-[#e0e7ff]/30 p-4 flex items-start gap-3">
+                <Shield className="h-5 w-5 text-[#4f46e5] shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-xs font-bold text-[#0f766e]">Member Direct Link</p>
+                  <p className="text-xs font-bold text-[#3730a3]">Member Direct Link</p>
                   <p className="text-xs text-slate-600 mt-0.5">
-                    Authorized members can access their clock-in screen directly at <span className="font-mono font-bold text-[#0d9488]">/clock-in</span>.
+                    Authorized members can access their clock-in screen directly at <span className="font-mono font-bold text-[#4f46e5]">/clock-in</span>.
                   </p>
                 </div>
               </div>
@@ -214,7 +214,7 @@ export function ClockInManagement() {
           <Card className="border-0 shadow-xs bg-white rounded-2xl overflow-hidden">
             <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
               <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-[#0d9488]" />
+                <MapPin className="h-4 w-4 text-[#4f46e5]" />
                 <CardTitle className="text-base font-bold text-[#1c1917]">GPS Coordinates & Radius</CardTitle>
               </div>
               <CardDescription className="text-xs text-slate-500">
@@ -229,7 +229,7 @@ export function ClockInManagement() {
                     id="church-latitude"
                     value={settings.church_latitude}
                     onChange={(e) => updateSetting("church_latitude", e.target.value)}
-                    className="rounded-xl border-slate-200 focus:border-[#0d9488] font-mono text-xs"
+                    className="rounded-xl border-slate-200 focus:border-[#4f46e5] font-mono text-xs"
                   />
                 </div>
                 <div className="space-y-2">
@@ -238,7 +238,7 @@ export function ClockInManagement() {
                     id="church-longitude"
                     value={settings.church_longitude}
                     onChange={(e) => updateSetting("church_longitude", e.target.value)}
-                    className="rounded-xl border-slate-200 focus:border-[#0d9488] font-mono text-xs"
+                    className="rounded-xl border-slate-200 focus:border-[#4f46e5] font-mono text-xs"
                   />
                 </div>
                 <div className="space-y-2">
@@ -248,7 +248,7 @@ export function ClockInManagement() {
                     type="number"
                     value={settings.geofence_radius_meters}
                     onChange={(e) => updateSetting("geofence_radius_meters", e.target.value)}
-                    className="rounded-xl border-slate-200 focus:border-[#0d9488] font-mono text-xs"
+                    className="rounded-xl border-slate-200 focus:border-[#4f46e5] font-mono text-xs"
                   />
                 </div>
               </div>
@@ -268,13 +268,13 @@ export function ClockInManagement() {
                   disabled={locating || saving || loading}
                   className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-100 text-xs"
                 >
-                  <Navigation className="h-3.5 w-3.5 mr-1.5 text-[#0d9488]" />
+                  <Navigation className="h-3.5 w-3.5 mr-1.5 text-[#4f46e5]" />
                   {locating ? "Capturing Location..." : "Capture Current GPS Coordinates"}
                 </Button>
                 <Button
                   onClick={handleSave}
                   disabled={saving || loading}
-                  className="bg-[#0d9488] hover:bg-[#0f766e] text-white rounded-xl text-xs font-bold"
+                  className="bg-[#4f46e5] hover:bg-[#4338ca] text-white rounded-xl text-xs font-bold"
                 >
                   <Save className="h-3.5 w-3.5 mr-1.5" />
                   {saving ? "Saving..." : "Save Geofence Settings"}
@@ -290,11 +290,11 @@ export function ClockInManagement() {
             <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Database className="h-4 w-4 text-[#0d9488]" />
+                  <Database className="h-4 w-4 text-[#4f46e5]" />
                   <CardTitle className="text-base font-bold text-[#1c1917]">Today's Activity Log</CardTitle>
                 </div>
                 <Button variant="outline" size="sm" onClick={loadRecords} className="rounded-xl border-slate-200 text-xs">
-                  <RefreshCw className="h-3.5 w-3.5 mr-1 text-[#0d9488]" /> Refresh Logs
+                  <RefreshCw className="h-3.5 w-3.5 mr-1 text-[#4f46e5]" /> Refresh Logs
                 </Button>
               </div>
             </CardHeader>
