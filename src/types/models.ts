@@ -34,7 +34,7 @@ export interface Visitor {
   email?: string;
   phone: string;
   first_visit_date: string;
-  assigned_to?: number;
+  assigned_to?: number | string;
   assigned_worker_name?: string;
   status: "new" | "contacted" | "visited" | "integrated" | "dropped";
   notes?: string;
@@ -44,7 +44,7 @@ export interface Visitor {
 export interface VisitorFollowup {
   id: number;
   visitor_id: number;
-  caller_id?: number;
+  caller_id?: number | string;
   caller_name?: string;
   date: string;
   medium: "call" | "sms" | "whatsapp" | "in-person";

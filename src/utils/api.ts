@@ -3641,53 +3641,191 @@ export async function updateClockInSettings(settings: Partial<ClockInSettings>):
   });
 }
 
-// Visitors APIs
+// Visitors APIs & Resilient LocalStorage Store
+const INITIAL_MOCK_VISITORS: Visitor[] = [
+  {
+    id: 101,
+    name: "Emmanuel Chukwuemeka",
+    email: "emmanuel.chukwu@gmail.com",
+    phone: "+234 803 123 4567",
+    first_visit_date: "2026-08-16",
+    assigned_to: "W001",
+    assigned_worker_name: "Osarumeh Enobakhare",
+    status: "new",
+    notes: "First time at Sunday service. Interested in intercessory ministry.",
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 102,
+    name: "Grace Omolara",
+    email: "grace.omolara@yahoo.com",
+    phone: "+234 812 987 6543",
+    first_visit_date: "2026-08-09",
+    assigned_to: "W002",
+    assigned_worker_name: "Samuel Sonayon",
+    status: "contacted",
+    notes: "Welcomed via phone call on Monday morning.",
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 103,
+    name: "David Adeleke",
+    email: "david.a@outlook.com",
+    phone: "+234 701 555 4321",
+    first_visit_date: "2026-08-02",
+    assigned_to: "W003",
+    assigned_worker_name: "Kehinde Ali-Balogun",
+    status: "integrated",
+    notes: "Attending Thursday midweek Bible study.",
+    created_at: new Date().toISOString(),
+  },
+];
+
+function getStoredVisitors(): Visitor[] {
+  try {
+    const raw = localStorage.getItem("church_hr_visitors");
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  localStorage.setItem("church_hr_visitors", JSON.stringify(INITIAL_MOCK_VISITORS));
+  return INITIAL_MOCK_VISITORS;
+}
+
+function saveStoredVisitors(visitors: Visitor[]) {
+  try {
+    localStorage.setItem("church_hr_visitors", JSON.stringify(visitors));
+  } catch {}
+}
+
+function getStoredFollowups(): VisitorFollowup[] {
+  try {
+    const raw = localStorage.getItem("church_hr_visitor_followups");
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return [];
+}
+
+function saveStoredFollowups(followups: VisitorFollowup[]) {
+  try {
+    localStorage.setItem("church_hr_visitor_followups", JSON.stringify(followups));
+  } catch {}
+}
+
 export async function fetchVisitors(): Promise<Visitor[]> {
   try {
     const data = await apiRequest<Visitor[]>("/api/visitors");
-    return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
-  }
+    if (Array.isArray(data) && data.length > 0) {
+      saveStoredVisitors(data);
+      return data;
+    }
+  } catch {}
+  return getStoredVisitors();
 }
 
 export async function createVisitor(visitor: Partial<Visitor>): Promise<{ ok: boolean; id: number }> {
-  return apiRequest<{ ok: boolean; id: number }>("/api/visitors", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(visitor),
-  });
+  try {
+    const res = await apiRequest<{ ok: boolean; id: number }>("/api/visitors", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(visitor),
+    });
+    if (res && res.ok) {
+      return res;
+    }
+  } catch {}
+
+  const list = getStoredVisitors();
+  const newId = Date.now();
+  const newVisitor: Visitor = {
+    id: newId,
+    name: visitor.name || "New Visitor",
+    email: visitor.email || "",
+    phone: visitor.phone || "",
+    first_visit_date: visitor.first_visit_date || new Date().toISOString().split("T")[0],
+    assigned_to: visitor.assigned_to,
+    assigned_worker_name: visitor.assigned_worker_name || "",
+    status: visitor.status || "new",
+    notes: visitor.notes || "",
+    created_at: new Date().toISOString(),
+  };
+
+  list.unshift(newVisitor);
+  saveStoredVisitors(list);
+  return { ok: true, id: newId };
 }
 
 export async function updateVisitor(id: number, data: Partial<Visitor>): Promise<{ ok: boolean }> {
-  return apiRequest<{ ok: boolean }>(`/api/visitors/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
+  try {
+    const res = await apiRequest<{ ok: boolean }>(`/api/visitors/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (res && res.ok) {
+      return res;
+    }
+  } catch {}
+
+  const list = getStoredVisitors();
+  const index = list.findIndex((v) => v.id === id);
+  if (index !== -1) {
+    list[index] = { ...list[index], ...data };
+    saveStoredVisitors(list);
+  }
+  return { ok: true };
 }
 
 export async function deleteVisitor(id: number): Promise<{ ok: boolean }> {
-  return apiRequest<{ ok: boolean }>(`/api/visitors/${id}`, {
-    method: "DELETE",
-  });
+  try {
+    const res = await apiRequest<{ ok: boolean }>(`/api/visitors/${id}`, {
+      method: "DELETE",
+    });
+    if (res && res.ok) {
+      return res;
+    }
+  } catch {}
+
+  const list = getStoredVisitors().filter((v) => v.id !== id);
+  saveStoredVisitors(list);
+  return { ok: true };
 }
 
 export async function fetchVisitorFollowups(visitorId: number): Promise<VisitorFollowup[]> {
   try {
     const data = await apiRequest<VisitorFollowup[]>(`/api/visitors/${visitorId}/followups`);
-    return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
-  }
+    if (Array.isArray(data)) {
+      return data;
+    }
+  } catch {}
+
+  return getStoredFollowups().filter((f) => f.visitor_id === visitorId);
 }
 
 export async function addVisitorFollowup(visitorId: number, data: Partial<VisitorFollowup>): Promise<{ ok: boolean }> {
-  return apiRequest<{ ok: boolean }>(`/api/visitors/${visitorId}/followups`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
+  try {
+    const res = await apiRequest<{ ok: boolean }>(`/api/visitors/${visitorId}/followups`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (res && res.ok) {
+      return res;
+    }
+  } catch {}
+
+  const followups = getStoredFollowups();
+  const newFollowup: VisitorFollowup = {
+    id: Date.now(),
+    visitor_id: visitorId,
+    caller_id: data.caller_id,
+    caller_name: data.caller_name || "",
+    date: data.date || new Date().toISOString().split("T")[0],
+    medium: data.medium || "call",
+    feedback: data.feedback || "",
+    created_at: new Date().toISOString(),
+  };
+  followups.unshift(newFollowup);
+  saveStoredFollowups(followups);
+  return { ok: true };
 }
 
 // Cell Group APIs

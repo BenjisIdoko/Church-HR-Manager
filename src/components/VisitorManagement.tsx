@@ -66,13 +66,16 @@ export function VisitorManagement({ workers }: VisitorManagementProps) {
       return;
     }
 
+    const assignedWorker = workers.find((w) => w.id === newAssigned);
+
     try {
       await createVisitor({
         name: newName,
         email: newEmail,
         phone: newPhone,
         first_visit_date: newDate,
-        assigned_to: newAssigned ? Number(newAssigned) : undefined,
+        assigned_to: newAssigned || undefined,
+        assigned_worker_name: assignedWorker ? assignedWorker.name : undefined,
         notes: newNotes,
         status: "new",
       });
@@ -82,6 +85,7 @@ export function VisitorManagement({ workers }: VisitorManagementProps) {
       setNewEmail("");
       setNewPhone("");
       setNewNotes("");
+      setNewAssigned("");
       void loadData();
     } catch {
       toast.error("Failed to register visitor");
@@ -129,9 +133,12 @@ export function VisitorManagement({ workers }: VisitorManagementProps) {
       return;
     }
 
+    const callerObj = workers.find((w) => w.id === followupCaller);
+
     try {
       await addVisitorFollowup(selectedVisitor.id, {
-        caller_id: followupCaller ? Number(followupCaller) : undefined,
+        caller_id: followupCaller || undefined,
+        caller_name: callerObj ? callerObj.name : undefined,
         medium: followupMedium,
         feedback: followupFeedback,
         date: new Date().toISOString().split("T")[0],
