@@ -5,11 +5,10 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Switch } from "./ui/switch";
-import { Separator } from "./ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { toast } from "sonner";
-import { Clock, MapPin, Database } from "lucide-react";
+import { Clock, MapPin, Database, Sparkles, Navigation, Save, RefreshCw, CheckCircle2, Shield } from "lucide-react";
 import { getClockInSettings, updateClockInSettings, getClockInsByDate, ClockInSettings } from "../utils/api";
 import { formatDistance, getCurrentLocation } from "../utils/clockInService";
 
@@ -46,17 +45,17 @@ export function ClockInManagement() {
     load();
   }, []);
 
-  useEffect(() => {
-    const loadRecords = async () => {
-      try {
-        const today = new Date().toISOString().slice(0, 10);
-        const data = await getClockInsByDate(today);
-        setRecords(Array.isArray(data) ? data : data ? [data] : []);
-      } catch (error) {
-        console.error(error);
-      }
-    };
+  const loadRecords = async () => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const data = await getClockInsByDate(today);
+      setRecords(Array.isArray(data) ? data : data ? [data] : []);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
+  useEffect(() => {
     loadRecords();
   }, []);
 
@@ -93,7 +92,7 @@ export function ClockInManagement() {
         church_longitude: location.longitude.toFixed(6),
       }));
       toast.success(
-        `Location captured${location.accuracy ? ` with about ${formatDistance(location.accuracy)} accuracy` : ""}. Save geofence settings to apply it.`
+        `Location captured${location.accuracy ? ` (accuracy: ~${formatDistance(location.accuracy)})` : ""}. Save geofence settings to apply.`
       );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to capture current location.");
@@ -103,48 +102,72 @@ export function ClockInManagement() {
   };
 
   return (
-    <div className="space-y-6 max-w-6xl">
-      <div>
-        <h1>Clock-In Portal Management</h1>
-        <p className="text-muted-foreground">
-          Configure the employee clock-in portal, manage geofence details, and review recent clock-in activity.
-        </p>
+    <div className="space-y-6 max-w-6xl mx-auto">
+      {/* Header Banner */}
+      <div className="gradient-hero-card p-6 rounded-2xl shadow-2xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-bold tracking-tight text-[#1c1917]">Clock-In Portal Management</h1>
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#ccfbf1] px-3 py-0.5 text-xs font-semibold text-[#0f766e]">
+              <Sparkles className="h-3.5 w-3.5 text-[#0d9488]" /> Geofence & Hardware
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-[#78716c]">
+            Configure member portal parameters, auditorium GPS geofence boundaries, and monitor live attendance logs.
+          </p>
+        </div>
+
+        <Button
+          onClick={handleSave}
+          disabled={saving || loading}
+          className="bg-[#0d9488] hover:bg-[#0f766e] text-white rounded-xl font-bold text-xs shadow-xs shrink-0"
+        >
+          <Save className="h-4 w-4 mr-1.5" />
+          {saving ? "Saving Changes..." : "Save Settings"}
+        </Button>
       </div>
 
       <Tabs defaultValue="portal" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="portal">Portal Settings</TabsTrigger>
-          <TabsTrigger value="geofence">Geofence</TabsTrigger>
-          <TabsTrigger value="activity">Recent Activity</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 rounded-xl bg-slate-100 p-1">
+          <TabsTrigger value="portal" className="rounded-lg text-xs font-semibold">Portal Configuration</TabsTrigger>
+          <TabsTrigger value="geofence" className="rounded-lg text-xs font-semibold">GPS Geofence</TabsTrigger>
+          <TabsTrigger value="activity" className="rounded-lg text-xs font-semibold">Live Activity</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="portal">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" /> Portal Settings
-              </CardTitle>
-              <CardDescription>
-                Control member access, portal branding, and device import availability.
+        {/* Portal Settings Tab */}
+        <TabsContent value="portal" className="mt-3">
+          <Card className="border-0 shadow-xs bg-white rounded-2xl overflow-hidden">
+            <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-[#0d9488]" />
+                <CardTitle className="text-base font-bold text-[#1c1917]">Member Access & Branding</CardTitle>
+              </div>
+              <CardDescription className="text-xs text-slate-500">
+                Manage whether members can clock in from their phones and customize portal title text.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-4">
-                    <Label htmlFor="portal-enabled">Portal Enabled</Label>
-                    <Switch
-                      checked={settings.clock_in_portal_enabled === "true"}
-                      onCheckedChange={(value) => updateSetting("clock_in_portal_enabled", value ? "true" : "false")}
-                      id="portal-enabled"
-                    />
+            <CardContent className="p-6 space-y-6">
+              <div className="grid gap-5 md:grid-cols-2">
+                <div className="p-4 border border-slate-200 rounded-2xl bg-slate-50 flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="portal-enabled" className="text-sm font-bold text-[#1c1917]">Enable Member Clock-In</Label>
+                    <p className="text-xs text-slate-500 mt-0.5">Allows members to check in via /clock-in</p>
                   </div>
+                  <Switch
+                    checked={settings.clock_in_portal_enabled === "true"}
+                    onCheckedChange={(val) => updateSetting("clock_in_portal_enabled", val ? "true" : "false")}
+                    id="portal-enabled"
+                  />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="device-import-enabled">Device Import</Label>
+
+                <div className="p-4 border border-slate-200 rounded-2xl bg-slate-50 flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="device-import-enabled" className="text-sm font-bold text-[#1c1917]">Enable Hardware Device Import</Label>
+                    <p className="text-xs text-slate-500 mt-0.5">Allows importing device CSV logs</p>
+                  </div>
                   <Switch
                     checked={settings.device_import_enabled === "true"}
-                    onCheckedChange={(value) => updateSetting("device_import_enabled", value ? "true" : "false")}
+                    onCheckedChange={(val) => updateSetting("device_import_enabled", val ? "true" : "false")}
                     id="device-import-enabled"
                   />
                 </div>
@@ -152,141 +175,172 @@ export function ClockInManagement() {
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="portal-name">Portal Name</Label>
+                  <Label htmlFor="portal-name" className="text-xs font-semibold uppercase text-slate-600">Portal Display Name</Label>
                   <Input
                     id="portal-name"
                     value={settings.clock_in_portal_name}
                     onChange={(e) => updateSetting("clock_in_portal_name", e.target.value)}
+                    className="rounded-xl border-slate-200 focus:border-[#0d9488]"
                   />
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="portal-description">Portal Description</Label>
+                  <Label htmlFor="portal-description" className="text-xs font-semibold uppercase text-slate-600">Portal Description</Label>
                   <Textarea
                     id="portal-description"
                     value={settings.clock_in_portal_description}
                     onChange={(e) => updateSetting("clock_in_portal_description", e.target.value)}
-                    rows={4}
+                    rows={3}
+                    className="rounded-xl border-slate-200 focus:border-[#0d9488]"
                   />
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-medium">Member portal link</p>
-                <p className="text-sm text-muted-foreground">
-                  The clock-in portal is available at{' '}
-                  <span className="font-semibold">/clock-in</span> for authorized member users.
-                </p>
+              <div className="rounded-2xl border border-[#0d9488]/30 bg-[#f0fdf4] p-4 flex items-start gap-3">
+                <Shield className="h-5 w-5 text-[#0d9488] shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-bold text-[#0f766e]">Member Direct Link</p>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    Authorized members can access their clock-in screen directly at <span className="font-mono font-bold text-[#0d9488]">/clock-in</span>.
+                  </p>
+                </div>
               </div>
-
-              <Button onClick={handleSave} disabled={saving || loading}>
-                {saving ? "Saving settings..." : "Save Portal Settings"}
-              </Button>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="geofence">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="h-5 w-5" /> Geofence Configuration
-              </CardTitle>
-              <CardDescription>
-                Define the church location and radius used for clock-in validation.
+        {/* Geofence Configuration Tab */}
+        <TabsContent value="geofence" className="mt-3">
+          <Card className="border-0 shadow-xs bg-white rounded-2xl overflow-hidden">
+            <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-[#0d9488]" />
+                <CardTitle className="text-base font-bold text-[#1c1917]">GPS Coordinates & Radius</CardTitle>
+              </div>
+              <CardDescription className="text-xs text-slate-500">
+                Set exact auditorium GPS latitude and longitude coordinates for mobile location verification.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="p-6 space-y-6">
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="space-y-2">
-                  <Label htmlFor="church-latitude">Latitude</Label>
+                  <Label htmlFor="church-latitude" className="text-xs font-semibold uppercase text-slate-600">Latitude</Label>
                   <Input
                     id="church-latitude"
                     value={settings.church_latitude}
                     onChange={(e) => updateSetting("church_latitude", e.target.value)}
+                    className="rounded-xl border-slate-200 focus:border-[#0d9488] font-mono text-xs"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="church-longitude">Longitude</Label>
+                  <Label htmlFor="church-longitude" className="text-xs font-semibold uppercase text-slate-600">Longitude</Label>
                   <Input
                     id="church-longitude"
                     value={settings.church_longitude}
                     onChange={(e) => updateSetting("church_longitude", e.target.value)}
+                    className="rounded-xl border-slate-200 focus:border-[#0d9488] font-mono text-xs"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="geofence-radius">Radius (meters)</Label>
+                  <Label htmlFor="geofence-radius" className="text-xs font-semibold uppercase text-slate-600">Radius Threshold (meters)</Label>
                   <Input
                     id="geofence-radius"
                     type="number"
                     value={settings.geofence_radius_meters}
                     onChange={(e) => updateSetting("geofence_radius_meters", e.target.value)}
+                    className="rounded-xl border-slate-200 focus:border-[#0d9488] font-mono text-xs"
                   />
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-medium">How it works</p>
-                <p className="text-sm text-muted-foreground">
-                  Members must be within the configured geofence radius to clock in using the app. Device imports are not subject to live geofence checks.
-                </p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  For best results, open this page at the church auditorium, allow browser location access, then capture the current location below.
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-1">
+                <p className="text-xs font-bold text-[#1c1917]">Live Location Capture</p>
+                <p className="text-xs text-slate-500">
+                  Stand inside the church auditorium on your mobile or laptop, click <strong>"Capture Current GPS Coordinates"</strong>, and save settings.
                 </p>
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row">
-                <Button type="button" variant="outline" onClick={handleUseCurrentLocation} disabled={locating || saving || loading}>
-                  {locating ? "Capturing location..." : "Use Current Location"}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleUseCurrentLocation}
+                  disabled={locating || saving || loading}
+                  className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-100 text-xs"
+                >
+                  <Navigation className="h-3.5 w-3.5 mr-1.5 text-[#0d9488]" />
+                  {locating ? "Capturing Location..." : "Capture Current GPS Coordinates"}
                 </Button>
-                <Button onClick={handleSave} disabled={saving || loading}>
-                  {saving ? "Saving geofence..." : "Save Geofence Settings"}
+                <Button
+                  onClick={handleSave}
+                  disabled={saving || loading}
+                  className="bg-[#0d9488] hover:bg-[#0f766e] text-white rounded-xl text-xs font-bold"
+                >
+                  <Save className="h-3.5 w-3.5 mr-1.5" />
+                  {saving ? "Saving..." : "Save Geofence Settings"}
                 </Button>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="activity">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5" /> Recent Clock-In Activity
-              </CardTitle>
-              <CardDescription>
-                Review today&apos;s clock-in and clock-out records from the member portal.
-              </CardDescription>
+        {/* Live Activity Log Tab */}
+        <TabsContent value="activity" className="mt-3">
+          <Card className="border-0 shadow-xs bg-white rounded-2xl overflow-hidden">
+            <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Database className="h-4 w-4 text-[#0d9488]" />
+                  <CardTitle className="text-base font-bold text-[#1c1917]">Today's Activity Log</CardTitle>
+                </div>
+                <Button variant="outline" size="sm" onClick={loadRecords} className="rounded-xl border-slate-200 text-xs">
+                  <RefreshCw className="h-3.5 w-3.5 mr-1 text-[#0d9488]" /> Refresh Logs
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-4 overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Worker</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Timestamp</TableHead>
-                    <TableHead>Distance</TableHead>
-                    <TableHead>Source</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {records.length === 0 ? (
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-slate-50">
                     <TableRow>
-                      <TableCell colSpan={5} className="text-muted-foreground text-center py-6">
-                        No clock-in activity found for today.
-                      </TableCell>
+                      <TableHead className="text-xs font-bold text-slate-700 uppercase">Volunteer</TableHead>
+                      <TableHead className="text-xs font-bold text-slate-700 uppercase">Action</TableHead>
+                      <TableHead className="text-xs font-bold text-slate-700 uppercase">Timestamp</TableHead>
+                      <TableHead className="text-xs font-bold text-slate-700 uppercase">Proximity</TableHead>
+                      <TableHead className="text-xs font-bold text-slate-700 uppercase">Source</TableHead>
                     </TableRow>
-                  ) : (
-                    records.map((record) => (
-                      <TableRow key={record.id}>
-                        <TableCell>{record.worker_name}</TableCell>
-                        <TableCell>{record.type}</TableCell>
-                        <TableCell>{new Date(record.timestamp).toLocaleString()}</TableCell>
-                        <TableCell>{record.distance_from_church?.toFixed(0)} m</TableCell>
-                        <TableCell>{record.source}</TableCell>
+                  </TableHeader>
+                  <TableBody>
+                    {records.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-slate-500 text-center py-8 text-xs">
+                          No clock-in activity recorded for today yet.
+                        </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    ) : (
+                      records.map((record, i) => (
+                        <TableRow key={record.id || i} className="hover:bg-slate-50/60">
+                          <TableCell className="text-xs font-bold text-[#1c1917]">{record.worker_name || record.name || "Volunteer"}</TableCell>
+                          <TableCell>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                              record.type === "clock-in" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+                            }`}>
+                              {record.type === "clock-in" ? "Clock-In" : "Clock-Out"}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-xs font-mono text-slate-600">
+                            {new Date(record.timestamp).toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-xs text-slate-600 font-mono">
+                            {record.distance_from_church !== undefined ? `${record.distance_from_church?.toFixed(0)}m` : "—"}
+                          </TableCell>
+                          <TableCell className="text-xs text-slate-500 capitalize">{record.source || "web"}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

@@ -4,7 +4,7 @@ import { Button } from "./ui/button";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Badge } from "./ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { MapPin, Clock, AlertCircle, CheckCircle, Loader, Calendar } from "lucide-react";
+import { MapPin, Clock, AlertCircle, CheckCircle, Loader, Calendar, ShieldCheck, Navigation, Radio, Compass } from "lucide-react";
 import { User } from "../types/models";
 import {
   getCurrentLocation,
@@ -19,6 +19,7 @@ import {
   getServiceDayInfo,
 } from "../utils/clockInService";
 import { getClockInSettings, recordClockIn, getWorkerClockStatus, WorkerClockStatus } from "../utils/api";
+import { toast } from "sonner";
 
 interface ClockInScreenProps {
   user: User;
@@ -37,6 +38,7 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [isWithin, setIsWithin] = useState(false);
   const [clockStatus, setClockStatus] = useState<WorkerClockStatus | null>(null);
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [geofenceConfig, setGeofenceConfig] = useState<GeofenceConfig>({
     latitude: CHURCH_LOCATION.latitude,
     longitude: CHURCH_LOCATION.longitude,
@@ -44,7 +46,15 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
   });
   const [portalEnabled, setPortalEnabled] = useState(true);
 
-  // Fetch initial clock status
+  // Live Digital Clock ticker
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Fetch initial clock status & settings
   useEffect(() => {
     const fetchStatus = async () => {
       try {
@@ -93,21 +103,26 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
   const handleClockInOut = async () => {
     if (!user.workerId) {
       setError("User worker ID not found");
+      toast.error("User worker ID not found");
       return;
     }
 
     if (distance === null) {
-      setError("Unable to determine your location. Please ensure location services are enabled.");
+      setError("Unable to determine your location. Please enable browser location services.");
+      toast.error("Unable to determine your location.");
       return;
     }
 
     if (!portalEnabled) {
-      setError("Clock-in portal is currently disabled.");
+      setError("Clock-in portal is currently disabled by administrators.");
+      toast.error("Clock-in portal is currently disabled.");
       return;
     }
 
     if (!isWithin) {
-      setError(`You are ${formatDistance(distance)} from the church. You must be within ${geofenceConfig.radiusMeters} meters to clock in.`);
+      const msg = `You are ${formatDistance(distance)} from church grounds. You must be within ${geofenceConfig.radiusMeters}m to clock in.`;
+      setError(msg);
+      toast.error(msg);
       return;
     }
 
@@ -124,220 +139,288 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
         type,
         latitude: location.latitude,
         longitude: location.longitude,
-        notes: `${type} via mobile app`,
+        notes: `${type} via member web app`,
       });
 
       if (response.ok) {
         setSuccess(response.message);
-        // Refresh clock status
+        toast.success(response.message);
         const updatedStatus = await getWorkerClockStatus(user.workerId);
         setClockStatus(updatedStatus);
       } else {
         setError(response.message || "Failed to record clock in");
+        toast.error(response.message || "Failed to record clock in");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to record clock in");
+      const msg = err instanceof Error ? err.message : "Failed to record clock in";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
   };
 
   const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   };
 
   const formatDate = (timestamp: string) => {
-    return new Date(timestamp).toLocaleDateString();
+    return new Date(timestamp).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" });
   };
-
-  const statusColor = isWithin ? "text-green-600" : "text-red-600";
-  const statusBg = isWithin ? "bg-green-50" : "bg-red-50";
 
   const serviceInfo = getServiceDayInfo();
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      <div>
-        <h1 className="text-3xl font-bold">Clock In/Out</h1>
-        <p className="text-muted-foreground">
-          Check in when you arrive at church for Thursday & Sunday services
-        </p>
-      </div>
-
-      {/* Service Schedule Banner */}
-      <div className={`rounded-xl border p-4 flex items-center gap-3 ${serviceInfo.isServiceDay ? 'border-emerald-200 bg-emerald-50 text-emerald-950' : 'border-indigo-200 bg-indigo-50/70 text-indigo-950'}`}>
-        <Calendar className={`h-6 w-6 shrink-0 ${serviceInfo.isServiceDay ? 'text-emerald-600' : 'text-indigo-600'}`} />
+    <div className="space-y-6 max-w-4xl mx-auto">
+      {/* Header Banner */}
+      <div className="gradient-hero-card p-6 rounded-2xl shadow-2xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <p className="font-semibold text-sm">Service Days: Thursdays & Sundays</p>
-          <p className="text-xs mt-0.5 opacity-90">
-            {serviceInfo.isServiceDay
-              ? `🟢 Today is a Service Day (${serviceInfo.serviceName}). Attendance recording is active.`
-              : `ℹ️ Today is a Non-Service Day. Service attendance is recorded on Thursdays and Sundays.`}
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-bold tracking-tight text-[#1c1917]">Volunteer Clock-In Portal</h1>
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#ccfbf1] px-3 py-0.5 text-xs font-semibold text-[#0f766e]">
+              <Radio className="h-3.5 w-3.5 text-[#0d9488] animate-pulse" /> Live Geofence
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-[#78716c]">
+            Record your presence when arriving on church auditorium grounds for Thursday & Sunday services.
           </p>
+        </div>
+
+        {/* Live Digital Clock Badge */}
+        <div className="flex items-center gap-3 p-3 bg-white/80 backdrop-blur-xs rounded-xl border border-slate-200 shadow-2xs self-start md:self-auto">
+          <div className="p-2 bg-[#0d9488]/10 text-[#0d9488] rounded-lg">
+            <Clock className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-base font-extrabold text-[#1c1917] tracking-wider font-mono">
+              {currentTime.toLocaleTimeString()}
+            </p>
+            <p className="text-[10px] text-slate-500 font-medium">{formatDate(currentTime.toISOString())}</p>
+          </div>
         </div>
       </div>
 
-      {/* Location Status Card */}
-      <Card className={statusBg}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MapPin className={`w-5 h-5 ${statusColor}`} />
-            Location Status
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm text-muted-foreground">Distance from Church</p>
-              <p className={`text-2xl font-bold ${statusColor}`}>
-                {distance !== null ? formatDistance(distance) : "Loading..."}
-              </p>
-              {accuracy !== null && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  GPS accuracy: approximately {formatDistance(accuracy)}
-                </p>
+      {/* Service Schedule Banner */}
+      <div className={`rounded-2xl border p-4 flex items-center justify-between gap-3 ${serviceInfo.isServiceDay ? 'border-emerald-200 bg-emerald-50/70 text-emerald-950' : 'border-indigo-200 bg-indigo-50/70 text-indigo-950'}`}>
+        <div className="flex items-center gap-3">
+          <div className={`p-2.5 rounded-xl ${serviceInfo.isServiceDay ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white'}`}>
+            <Calendar className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="font-bold text-sm">Service Schedule: Thursdays & Sundays</p>
+            <p className="text-xs opacity-90 mt-0.5">
+              {serviceInfo.isServiceDay
+                ? `🟢 Today is a Service Day (${serviceInfo.serviceName}). Attendance recording is active.`
+                : `ℹ️ Today is a Non-Service Day. Official service attendance records populate on Thursdays and Sundays.`}
+            </p>
+          </div>
+        </div>
+        <Badge className={serviceInfo.isServiceDay ? "bg-emerald-600 text-white" : "bg-indigo-600 text-white"}>
+          {serviceInfo.isServiceDay ? "Active Day" : "Off-Day"}
+        </Badge>
+      </div>
+
+      {/* Primary Action Hero Card */}
+      <Card className="border-0 shadow-sm bg-white rounded-2xl overflow-hidden text-center">
+        <CardContent className="p-8 space-y-6">
+          {/* Main Tactile Action Button */}
+          <div className="flex flex-col items-center justify-center space-y-4">
+            <div className="relative">
+              {/* Outer Pulse Rings */}
+              {isWithin && portalEnabled && !loading && (
+                <span className="absolute -inset-3 rounded-full bg-[#0d9488]/20 animate-ping pointer-events-none" />
               )}
+              <button
+                type="button"
+                onClick={handleClockInOut}
+                disabled={loading || !portalEnabled || !isWithin || distance === null}
+                className={`relative h-44 w-44 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-xl border-4 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
+                  clockStatus?.isClockedIn
+                    ? "bg-gradient-to-br from-rose-500 to-red-600 border-rose-300 text-white shadow-rose-500/30 hover:from-rose-600 hover:to-red-700"
+                    : isWithin
+                    ? "bg-gradient-to-br from-[#0d9488] to-[#059669] border-emerald-300 text-white shadow-[#0d9488]/40 hover:from-[#0f766e] hover:to-[#047857] scale-105"
+                    : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                }`}
+              >
+                {loading ? (
+                  <Loader className="h-10 w-10 animate-spin text-white" />
+                ) : clockStatus?.isClockedIn ? (
+                  <>
+                    <Clock className="h-10 w-10 mb-1" />
+                    <span className="text-lg font-extrabold uppercase tracking-wider">Clock Out</span>
+                    <span className="text-[10px] opacity-80 mt-0.5">End Service Duty</span>
+                  </>
+                ) : (
+                  <>
+                    <Navigation className="h-10 w-10 mb-1" />
+                    <span className="text-lg font-extrabold uppercase tracking-wider">Clock In</span>
+                    <span className="text-[10px] opacity-80 mt-0.5">Record Arrival</span>
+                  </>
+                )}
+              </button>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Status</p>
-              <Badge className={isWithin ? "bg-green-600" : "bg-red-600"}>
-                {isWithin ? `Within ${geofenceConfig.radiusMeters}m` : "Out of Range"}
-              </Badge>
+
+            {/* Status Guidance Message */}
+            <div className="max-w-md space-y-1">
+              <p className="text-sm font-bold text-[#1c1917]">
+                {clockStatus?.isClockedIn ? "You are currently Clocked In" : "Ready to Clock In"}
+              </p>
+              <p className="text-xs text-slate-500">
+                {!portalEnabled
+                  ? "Portal is disabled by administration."
+                  : !isWithin && distance !== null
+                  ? `Move closer to church grounds (${formatDistance(distance)} away, threshold: ${geofenceConfig.radiusMeters}m).`
+                  : distance === null
+                  ? "Acquiring GPS satellite position..."
+                  : "You are on church grounds. Tap above to register your timestamp."}
+              </p>
             </div>
           </div>
 
+          {/* Feedback Alerts */}
           {error && (
-            <Alert variant="destructive">
+            <Alert variant="destructive" className="max-w-lg mx-auto rounded-xl">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription className="text-xs">{error}</AlertDescription>
             </Alert>
           )}
 
           {success && (
-            <Alert className="border-green-200 bg-green-50">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">{success}</AlertDescription>
+            <Alert className="max-w-lg mx-auto rounded-xl border-emerald-200 bg-emerald-50 text-emerald-900">
+              <CheckCircle className="h-4 w-4 text-emerald-600" />
+              <AlertDescription className="text-xs font-semibold ml-1">{success}</AlertDescription>
             </Alert>
           )}
         </CardContent>
       </Card>
 
-      {/* Clock In/Out Button */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Clock In/Out</CardTitle>
-          <CardDescription>
-            {clockStatus?.isClockedIn ? "You are currently clocked in" : "You are not clocked in"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {clockStatus && (
-            <div className="rounded-lg bg-slate-50 p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Current Status</p>
-                  <p className="text-lg font-semibold">
-                    {clockStatus.isClockedIn ? "Clocked In" : "Clocked Out"}
-                  </p>
-                  {clockStatus.lastRecord && (
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Last {clockStatus.lastRecord.type === "clock-in" ? "clocked in" : "clocked out"}:{" "}
-                      {formatTime(clockStatus.lastRecord.timestamp)}
-                    </p>
-                  )}
-                </div>
-                <Clock className="w-8 h-8 text-muted-foreground" />
+      {/* GPS Location & Distance Gauge Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Geofence Proximity Card */}
+        <Card className="border-0 shadow-xs bg-white rounded-2xl">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Compass className="h-4 w-4 text-[#0d9488]" />
+                <CardTitle className="text-sm font-bold text-[#1c1917]">GPS Geofence Proximity</CardTitle>
+              </div>
+              <Badge className={isWithin ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"}>
+                {isWithin ? "In Range" : "Out of Range"}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">Distance from Church:</span>
+              <span className={`font-bold text-base ${isWithin ? "text-emerald-600" : "text-rose-600"}`}>
+                {distance !== null ? formatDistance(distance) : "Calculating..."}
+              </span>
+            </div>
+
+            {/* Visual Distance Gauge Bar */}
+            <div className="space-y-1">
+              <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                <div
+                  className={`h-2.5 transition-all duration-500 rounded-full ${
+                    isWithin ? "bg-emerald-500" : "bg-rose-500"
+                  }`}
+                  style={{
+                    width: `${Math.min(100, Math.max(5, distance !== null ? (distance / (geofenceConfig.radiusMeters * 2)) * 100 : 100))}%`,
+                  }}
+                />
+              </div>
+              <div className="flex justify-between text-[10px] text-slate-400 font-medium">
+                <span>0m (Auditorium)</span>
+                <span>Allowed: {geofenceConfig.radiusMeters}m</span>
               </div>
             </div>
-          )}
 
-          <Button
-            onClick={handleClockInOut}
-            disabled={loading || !portalEnabled || !isWithin || distance === null}
-            size="lg"
-            className="w-full"
-            variant={clockStatus?.isClockedIn ? "destructive" : "default"}
-          >
-            {loading && <Loader className="w-4 h-4 mr-2 animate-spin" />}
-            {loading ? "Processing..." : clockStatus?.isClockedIn ? "Clock Out" : "Clock In"}
-          </Button>
+            {accuracy !== null && (
+              <p className="text-[11px] text-slate-400">
+                Device GPS accuracy: ±{formatDistance(accuracy)}
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
-          {!isWithin && distance !== null && (
-            <p className="text-sm text-amber-600 text-center">
-              Move closer to the church to clock in (within {geofenceConfig.radiusMeters} meters)
-            </p>
-          )}
-
-          {!portalEnabled && (
-            <p className="text-sm text-red-600 text-center">
-              Clock-in portal is currently disabled by an administrator.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Today's Records */}
-      {clockStatus && clockStatus.todayRecords.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Today's Records</CardTitle>
-            <CardDescription>{formatDate(clockStatus.todayRecords[0].timestamp)}</CardDescription>
+        {/* Location Specs Card */}
+        <Card className="border-0 shadow-xs bg-white rounded-2xl">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-[#0d9488]" />
+              <CardTitle className="text-sm font-bold text-[#1c1917]">Auditorium Geofence Specs</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Distance</TableHead>
-                  <TableHead>Source</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {clockStatus.todayRecords.map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell>{formatTime(record.timestamp)}</TableCell>
-                    <TableCell>
-                      <Badge variant={record.type === "clock-in" ? "default" : "secondary"}>
-                        {record.type === "clock-in" ? "In" : "Out"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{formatDistance(record.distance_from_church)}</TableCell>
-                    <TableCell className="capitalize">{record.source}</TableCell>
+          <CardContent className="space-y-2 text-xs text-slate-600">
+            <div className="flex justify-between border-b border-slate-100 pb-1.5">
+              <span>Auditorium Latitude:</span>
+              <span className="font-mono text-slate-800">{geofenceConfig.latitude}</span>
+            </div>
+            <div className="flex justify-between border-b border-slate-100 pb-1.5">
+              <span>Auditorium Longitude:</span>
+              <span className="font-mono text-slate-800">{geofenceConfig.longitude}</span>
+            </div>
+            <div className="flex justify-between border-b border-slate-100 pb-1.5">
+              <span>Service Start Time:</span>
+              <span className="font-semibold text-slate-800">{SERVICE_START_TIME}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Late Grace Window:</span>
+              <span className="font-semibold text-slate-800">{LATE_ARRIVAL_GRACE_MINUTES} mins</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Today's Clock-In Records Table */}
+      {clockStatus && clockStatus.todayRecords.length > 0 && (
+        <Card className="border-0 shadow-xs bg-white rounded-2xl overflow-hidden">
+          <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-bold text-[#1c1917]">Today's Activity Log</CardTitle>
+              <span className="text-xs text-slate-500">{formatDate(clockStatus.todayRecords[0].timestamp)}</span>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-slate-50">
+                  <TableRow>
+                    <TableHead className="text-xs font-bold text-slate-700 uppercase">Timestamp</TableHead>
+                    <TableHead className="text-xs font-bold text-slate-700 uppercase">Action</TableHead>
+                    <TableHead className="text-xs font-bold text-slate-700 uppercase">Distance</TableHead>
+                    <TableHead className="text-xs font-bold text-slate-700 uppercase">Source</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {clockStatus.todayRecords.map((record) => (
+                    <TableRow key={record.id} className="hover:bg-slate-50/60">
+                      <TableCell className="text-xs font-mono font-bold text-[#1c1917]">
+                        {formatTime(record.timestamp)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          className={
+                            record.type === "clock-in"
+                              ? "bg-emerald-100 text-emerald-700 font-bold"
+                              : "bg-rose-100 text-rose-700 font-bold"
+                          }
+                        >
+                          {record.type === "clock-in" ? "Clock-In" : "Clock-Out"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-600">
+                        {formatDistance(record.distance_from_church)}
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-500 capitalize">{record.source}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       )}
-
-      {/* Church Location Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Church Location</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p>
-            <strong>Auditorium Latitude:</strong> {geofenceConfig.latitude}
-          </p>
-          <p>
-            <strong>Auditorium Longitude:</strong> {geofenceConfig.longitude}
-          </p>
-          <p>
-            <strong>Allowed Radius (m):</strong> {geofenceConfig.radiusMeters}
-          </p>
-          <p>
-            <strong>Service Start Time:</strong> {SERVICE_START_TIME}
-          </p>
-          <p>
-            <strong>Late Arrival Grace (minutes):</strong> {LATE_ARRIVAL_GRACE_MINUTES}
-          </p>
-          <p>
-            <strong>Note:</strong> Make sure location services are enabled on your device for accurate clock in/out recording.
-          </p>
-        </CardContent>
-      </Card>
     </div>
   );
 }
