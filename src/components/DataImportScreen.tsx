@@ -2,15 +2,31 @@ import { useState, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Alert, AlertDescription } from "./ui/alert";
-import { Upload, FileSpreadsheet, CheckCircle, XCircle, AlertCircle, Trash2 } from "lucide-react";
+import {
+  Upload,
+  FileSpreadsheet,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Trash2,
+  Download,
+  Users,
+  Calendar,
+  Cpu,
+  FileText,
+  Sparkles,
+  ArrowRight,
+  ShieldCheck
+} from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Badge } from "./ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { processFileUpload, parseCSVText, CSVParseResult, ValidationError, ValidationWarning } from "../utils/csvParser";
+import { toast } from "sonner";
+import { processFileUpload, parseCSVText, CSVParseResult } from "../utils/csvParser";
 import { DeviceImportRequest, importDeviceClockInRecords } from "../utils/api";
 
 type ImportStatus = "idle" | "validating" | "success" | "error";
-type ImportType = "attendance" | "workers";
+type ImportType = "attendance" | "workers" | "device";
 
 interface DataImportScreenProps {
   onImportComplete?: () => void | Promise<void>;
@@ -24,50 +40,100 @@ export function DataImportScreen({ onImportComplete }: DataImportScreenProps) {
   const [expandedErrors, setExpandedErrors] = useState<Set<number>>(new Set());
   const [expandedWarnings, setExpandedWarnings] = useState<Set<number>>(new Set());
   const [importing, setImporting] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+
   const [deviceImportMessage, setDeviceImportMessage] = useState<string | null>(null);
   const [deviceImportError, setDeviceImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const handleSelectedFile = (selectedFile: File) => {
+    if (selectedFile.size > 10 * 1024 * 1024) {
+      toast.error("File size exceeds 10MB limit.");
+      return;
+    }
+
+    const validTypes = [".csv", ".xlsx", ".xls"];
+    const fileName = selectedFile.name.toLowerCase();
+    const hasValidType = validTypes.some((type) => fileName.endsWith(type));
+
+    if (!hasValidType) {
+      toast.error("Invalid file format. Please upload CSV or Excel (.xlsx, .xls) files only.");
+      return;
+    }
+
+    setFile(selectedFile);
+    setStatus("idle");
+    setParseResult(null);
+    setDeviceImportMessage(null);
+    setDeviceImportError(null);
+    toast.success(`Selected file: ${selectedFile.name}`);
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      // Validate file size (10MB max)
-      if (selectedFile.size > 10 * 1024 * 1024) {
-        alert("File size exceeds 10MB limit");
-        return;
-      }
-      
-      // Validate file type
-      const validTypes = ['.csv', '.xlsx', '.xls'];
-      const fileName = selectedFile.name.toLowerCase();
-      const hasValidType = validTypes.some((type) => fileName.endsWith(type));
-      
-      if (!hasValidType) {
-        alert("Invalid file format. Please upload CSV or Excel files only.");
-        return;
-      }
-      
-      setFile(selectedFile);
-      setStatus("idle");
-      setParseResult(null);
+      handleSelectedFile(selectedFile);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const droppedFiles = e.dataTransfer.files;
+    if (droppedFiles && droppedFiles.length > 0) {
+      handleSelectedFile(droppedFiles[0]);
     }
   };
 
   const handleValidate = async () => {
     if (!file) return;
-    
+
     setStatus("validating");
-    
+
     try {
-      const result = await processFileUpload(file, importType);
-      setParseResult(result);
-      setStatus(result.success ? "success" : "error");
+      if (importType === "device") {
+        const text = await file.text();
+        const parsedRows = parseCSVText(text);
+        if (parsedRows.length === 0) {
+          throw new Error("CSV file must contain a header and at least one record.");
+        }
+        setParseResult({
+          success: true,
+          data: parsedRows,
+          errors: [],
+          warnings: [],
+          summary: {
+            totalRows: parsedRows.length,
+            validRows: parsedRows.length,
+            invalidRows: 0,
+          },
+        });
+        setStatus("success");
+      } else {
+        const result = await processFileUpload(file, importType);
+        setParseResult(result);
+        setStatus(result.success ? "success" : "error");
+      }
     } catch (error) {
       setStatus("error");
       setParseResult({
         success: false,
         data: [],
-        errors: [{ row: 0, column: "file", message: `Error processing file: ${error instanceof Error ? error.message : "Unknown error"}` }],
+        errors: [{ row: 0, column: "file", message: `Processing error: ${error instanceof Error ? error.message : "Unknown error"}` }],
         warnings: [],
         summary: { totalRows: 0, validRows: 0, invalidRows: 0 },
       });
@@ -75,47 +141,53 @@ export function DataImportScreen({ onImportComplete }: DataImportScreenProps) {
   };
 
   const handleConfirmImport = async () => {
-    if (!parseResult?.success) return;
+    if (!file) return;
 
     setImporting(true);
 
     try {
-      const response = await fetch('/api/import', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          type: importType,
-          records: parseResult.data,
-        }),
-      });
+      if (importType === "device") {
+        await handleDeviceClockInImport(file);
+      } else {
+        if (!parseResult?.success) return;
 
-      const result = await response.json();
-      if (!response.ok || result.ok === false) {
-        throw new Error(result.message || 'Import failed');
+        const response = await fetch("/api/import", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            type: importType,
+            records: parseResult.data,
+          }),
+        });
+
+        const result = await response.json();
+        if (!response.ok || result.ok === false) {
+          throw new Error(result.message || "Import failed");
+        }
+
+        toast.success(`Imported ${result.imported ?? parseResult.summary.validRows} records successfully!`);
+        await onImportComplete?.();
+        handleReset();
       }
-
-      alert(`Imported ${result.imported} records successfully!`);
-      await onImportComplete?.();
-      handleReset();
     } catch (error) {
-      alert(`Import error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast.error(`Import error: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setImporting(false);
     }
   };
 
-  const handleDeviceClockInImport = async (file: File) => {
+  const handleDeviceClockInImport = async (fileToImport: File) => {
     setDeviceImportMessage(null);
     setDeviceImportError(null);
 
     try {
-      const text = await file.text();
+      const text = await fileToImport.text();
       const parsedRows = parseCSVText(text);
 
       if (parsedRows.length === 0) {
-        throw new Error('CSV file must contain header and at least one record');
+        throw new Error("CSV file must contain header and at least one record");
       }
 
       const records: DeviceImportRequest["records"] = [];
@@ -143,14 +215,18 @@ export function DataImportScreen({ onImportComplete }: DataImportScreenProps) {
       }
 
       if (records.length === 0) {
-        throw new Error('No valid records found in CSV');
+        throw new Error("No valid device clock-in records found in CSV");
       }
 
       const result = await importDeviceClockInRecords({ records });
-      setDeviceImportMessage(`${result.message} Successfully imported ${result.imported} records.`);
+      setDeviceImportMessage(`${result.message} Successfully imported ${result.imported} device logs.`);
+      toast.success(`Successfully imported ${result.imported} device clock-in logs!`);
       await onImportComplete?.();
+      handleReset();
     } catch (error) {
-      setDeviceImportError(error instanceof Error ? error.message : 'Unknown error');
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      setDeviceImportError(msg);
+      toast.error(`Device import error: ${msg}`);
     }
   };
 
@@ -160,9 +236,46 @@ export function DataImportScreen({ onImportComplete }: DataImportScreenProps) {
     setParseResult(null);
     setExpandedErrors(new Set());
     setExpandedWarnings(new Set());
+    setDeviceImportMessage(null);
+    setDeviceImportError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+  };
+
+  const downloadSampleCSV = (type: "workers" | "attendance" | "device") => {
+    let csvContent = "";
+    let fileName = "";
+
+    if (type === "workers") {
+      csvContent = `Worker ID,Name,Email,Phone Number,Department,Role,Status
+W001,Samuel Sonayon,samuel@church.org,08012345678,Media,superadmin,active
+W002,Deborah Okafor,deborah@church.org,08087654321,Intercessors,manager,active
+W003,John Doe,john@church.org,08099887766,Hospitality,member,active`;
+      fileName = "Sample_Volunteers_Roster.csv";
+    } else if (type === "attendance") {
+      csvContent = `Worker ID,Worker Name,Date,Check In Time,Check Out Time,Status,Department
+W001,Samuel Sonayon,2026-08-16,08:45,12:30,present,Media
+W002,Deborah Okafor,2026-08-16,09:15,12:30,late,Intercessors
+W003,John Doe,2026-08-16,,,absent,Hospitality`;
+      fileName = "Sample_Service_Attendance.csv";
+    } else {
+      csvContent = `Worker ID,Timestamp,Type,Device ID
+W001,2026-08-16T08:45:00Z,clock-in,DEV-KIOSK-01
+W001,2026-08-16T12:30:00Z,clock-out,DEV-KIOSK-01
+W002,2026-08-16T09:15:00Z,clock-in,DEV-KIOSK-02`;
+      fileName = "Sample_Device_ClockIn_Logs.csv";
+    }
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success(`Downloaded template: ${fileName}`);
   };
 
   const toggleErrorExpanded = (index: number) => {
@@ -185,104 +298,201 @@ export function DataImportScreen({ onImportComplete }: DataImportScreenProps) {
     setExpandedWarnings(newSet);
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "present":
-        return <Badge className="bg-green-600">Present</Badge>;
-      case "late":
-        return <Badge className="bg-yellow-600">Late</Badge>;
-      case "absent":
-        return <Badge variant="destructive">Absent</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
-
   return (
-    <div className="space-y-6 max-w-6xl">
-      <div>
-        <h1>Import Data</h1>
-        <p className="text-muted-foreground">
-          Upload CSV or Excel files for attendance or worker records
-        </p>
+    <div className="space-y-6 max-w-6xl mx-auto">
+      {/* Header Banner */}
+      <div className="gradient-hero-card p-6 rounded-2xl shadow-2xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-bold tracking-tight text-[#1c1917]">Import Ministry Records</h1>
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#ccfbf1] px-3 py-0.5 text-xs font-semibold text-[#0f766e]">
+              <Sparkles className="h-3.5 w-3.5 text-[#0d9488]" /> Bulk Upload Engine
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-[#78716c]">
+            Upload volunteers rosters, service attendance logs, or biometrics hardware device exports seamlessly.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => downloadSampleCSV("workers")}
+            className="rounded-xl border-[#e7e2d8] text-xs hover:bg-[#f0fdf4] text-slate-700"
+          >
+            <Download className="h-3.5 w-3.5 mr-1.5 text-[#0d9488]" />
+            Volunteers CSV Template
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => downloadSampleCSV("attendance")}
+            className="rounded-xl border-[#e7e2d8] text-xs hover:bg-[#f0fdf4] text-slate-700"
+          >
+            <Download className="h-3.5 w-3.5 mr-1.5 text-[#0d9488]" />
+            Attendance CSV Template
+          </Button>
+        </div>
       </div>
 
-      {/* Upload Area */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Upload File</CardTitle>
-          <CardDescription>
-            Select a CSV or Excel file containing records
-          </CardDescription>
+      {/* Main Upload Card */}
+      <Card className="border-0 shadow-xs bg-white rounded-2xl overflow-hidden">
+        <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <CardTitle className="text-lg font-bold text-[#1c1917]">1. Select Data Type & File</CardTitle>
+              <CardDescription className="text-xs text-slate-500">
+                Choose what type of records you are uploading, then drag or select your file.
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="flex gap-4 mb-6">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="importType"
-                value="attendance"
-                checked={importType === "attendance"}
-                onChange={(e) => setImportType(e.target.value as ImportType)}
-              />
-              <span>Attendance Data</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="importType"
-                value="workers"
-                checked={importType === "workers"}
-                onChange={(e) => setImportType(e.target.value as ImportType)}
-              />
-              <span>Workers List</span>
-            </label>
+
+        <CardContent className="p-6 space-y-6">
+          {/* Data Type Selection Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setImportType("attendance");
+                setParseResult(null);
+                setStatus("idle");
+              }}
+              className={`p-4 rounded-2xl border text-left transition-all flex items-start gap-3.5 ${
+                importType === "attendance"
+                  ? "border-[#0d9488] bg-[#f0fdf4] shadow-xs ring-2 ring-[#0d9488]/20"
+                  : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+              }`}
+            >
+              <div className={`p-2.5 rounded-xl ${importType === "attendance" ? "bg-[#0d9488] text-white" : "bg-slate-100 text-slate-600"}`}>
+                <Calendar className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-[#1c1917]">Service Attendance</p>
+                <p className="text-xs text-slate-500 mt-0.5">Logs for Thursday & Sunday services</p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setImportType("workers");
+                setParseResult(null);
+                setStatus("idle");
+              }}
+              className={`p-4 rounded-2xl border text-left transition-all flex items-start gap-3.5 ${
+                importType === "workers"
+                  ? "border-[#0d9488] bg-[#f0fdf4] shadow-xs ring-2 ring-[#0d9488]/20"
+                  : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+              }`}
+            >
+              <div className={`p-2.5 rounded-xl ${importType === "workers" ? "bg-[#0d9488] text-white" : "bg-slate-100 text-slate-600"}`}>
+                <Users className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-[#1c1917]">Volunteers Roster</p>
+                <p className="text-xs text-slate-500 mt-0.5">Member info, emails & departments</p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setImportType("device");
+                setParseResult(null);
+                setStatus("idle");
+              }}
+              className={`p-4 rounded-2xl border text-left transition-all flex items-start gap-3.5 ${
+                importType === "device"
+                  ? "border-[#0d9488] bg-[#f0fdf4] shadow-xs ring-2 ring-[#0d9488]/20"
+                  : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+              }`}
+            >
+              <div className={`p-2.5 rounded-xl ${importType === "device" ? "bg-[#0d9488] text-white" : "bg-slate-100 text-slate-600"}`}>
+                <Cpu className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-[#1c1917]">Hardware Devices</p>
+                <p className="text-xs text-slate-500 mt-0.5">Biometric clock-in CSV logs</p>
+              </div>
+            </button>
           </div>
 
-          <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer">
+          {/* Interactive Drag & Drop Area */}
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={`border-2 border-dashed rounded-2xl p-8 sm:p-10 text-center transition-all cursor-pointer relative overflow-hidden ${
+              isDragging
+                ? "border-[#0d9488] bg-[#f0fdf4] scale-[1.01] shadow-lg shadow-[#0d9488]/10"
+                : file
+                ? "border-[#0d9488]/60 bg-[#f0fdf4]/30"
+                : "border-slate-300 bg-gradient-to-b from-slate-50/50 to-white hover:border-[#0d9488] hover:bg-[#f0fdf4]/20"
+            }`}
+          >
             <input
               ref={fileInputRef}
               type="file"
               accept=".csv,.xlsx,.xls"
               onChange={handleFileChange}
               className="hidden"
-              id="file-upload"
+              id="file-upload-input"
             />
-            <label htmlFor="file-upload" className="cursor-pointer">
-              <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="mb-2">
-                Click to upload or drag and drop
-              </p>
-              <p className="text-sm text-muted-foreground">
-                CSV or Excel files (MAX. 10MB)
-              </p>
-            </label>
-          </div>
 
-          {file && (
-            <div className="mt-4 flex items-center gap-3 p-4 border rounded-lg bg-muted/50">
-              <FileSpreadsheet className="h-8 w-8 text-primary flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{file.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {(file.size / 1024).toFixed(2)} KB
+            <div className="flex flex-col items-center justify-center space-y-3">
+              <div className={`p-4 rounded-2xl transition-transform ${isDragging ? "scale-110 bg-[#0d9488] text-white" : "bg-[#ccfbf1] text-[#0d9488]"}`}>
+                <Upload className="h-8 w-8" />
+              </div>
+              <div>
+                <p className="text-base font-bold text-[#1c1917]">
+                  {isDragging ? "Drop your file here to upload" : "Click to upload or drag & drop"}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Supports CSV, Excel (.xlsx, .xls) files up to 10MB
                 </p>
               </div>
-              <div className="flex gap-2 flex-shrink-0">
-                {status !== "validating" && (
-                  <Button onClick={handleValidate} size="sm">
-                    Validate File
+              <div className="pt-2 flex items-center gap-2">
+                <Badge variant="outline" className="border-slate-200 text-slate-600 bg-white text-[11px]">
+                  UTF-8 CSV
+                </Badge>
+                <Badge variant="outline" className="border-slate-200 text-slate-600 bg-white text-[11px]">
+                  Excel .xlsx
+                </Badge>
+              </div>
+            </div>
+          </div>
+
+          {/* Active File Card */}
+          {file && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border border-[#0d9488]/30 rounded-2xl bg-[#f0fdf4]">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="p-3 bg-[#0d9488] text-white rounded-xl shrink-0">
+                  <FileSpreadsheet className="h-6 w-6" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-bold text-[#1c1917] truncate text-sm">{file.name}</p>
+                  <p className="text-xs text-slate-500">
+                    {(file.size / 1024).toFixed(1)} KB • {importType.toUpperCase()} MODE
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {status !== "validating" && !parseResult && (
+                  <Button onClick={handleValidate} size="sm" className="bg-[#0d9488] hover:bg-[#0f766e] text-white rounded-xl text-xs">
+                    <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Validate & Preview
                   </Button>
                 )}
                 {status === "validating" && (
-                  <Badge variant="secondary">Validating...</Badge>
+                  <Badge className="bg-[#0d9488] text-white px-3 py-1 text-xs animate-pulse">
+                    Validating File...
+                  </Badge>
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleReset}
-                >
-                  <Trash2 className="h-4 w-4" />
+                <Button variant="outline" size="sm" onClick={handleReset} className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-100 text-xs">
+                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Clear
                 </Button>
               </div>
             </div>
@@ -290,143 +500,84 @@ export function DataImportScreen({ onImportComplete }: DataImportScreenProps) {
         </CardContent>
       </Card>
 
-      {/* Device Clock-In Import */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Import Clock-In Records from Device</CardTitle>
-          <CardDescription>
-            Import attendance data from traditional clock-in devices using CSV format
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-950">
-            <p className="text-sm font-medium mb-2">Expected CSV Format:</p>
-            <code className="text-xs block whitespace-pre-wrap font-mono p-2 bg-white dark:bg-slate-900 rounded border">
-{`Worker ID,Timestamp,Type
-W001,2024-05-26T09:00:00Z,clock-in
-W001,2024-05-26T17:30:00Z,clock-out
-W002,2024-05-26T08:45:00Z,clock-in`}
-            </code>
-            <p className="text-xs text-muted-foreground mt-2">
-              • Worker ID: Must match existing worker records
-              • Timestamp: ISO 8601 format (e.g., 2024-05-26T09:00:00Z)
-              • Type: Either "clock-in" or "clock-out"
-            </p>
-          </div>
-
-          <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer">
-            <input
-              type="file"
-              accept=".csv"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  handleDeviceClockInImport(file);
-                }
-              }}
-              className="hidden"
-              id="device-clock-in-upload"
-            />
-            <label htmlFor="device-clock-in-upload" className="cursor-pointer">
-              <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="mb-2">Click to upload CSV file</p>
-              <p className="text-sm text-muted-foreground">CSV format only (MAX. 10MB)</p>
-            </label>
-          </div>
-
-          {deviceImportMessage && (
-            <Alert>
-              <AlertDescription>{deviceImportMessage}</AlertDescription>
-            </Alert>
-          )}
-          {deviceImportError && (
-            <Alert variant="destructive">
-              <AlertDescription>{deviceImportError}</AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Validation Feedback */}
+      {/* Validation Feedback & Metrics Grid */}
       {parseResult && (
-        <>
-          {parseResult.success && (
-            <Alert>
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription>
-                File validated successfully! {parseResult.summary.validRows} valid records found.
-                {parseResult.warnings.length > 0 && ` ${parseResult.warnings.length} warnings detected.`}
+        <div className="space-y-6">
+          {/* Status Alert Banner */}
+          {parseResult.success ? (
+            <Alert className="border-[#0d9488]/30 bg-[#f0fdf4] text-[#0f766e] rounded-2xl p-4">
+              <CheckCircle className="h-5 w-5 text-[#0d9488] shrink-0" />
+              <AlertDescription className="text-xs font-semibold ml-2">
+                File validated successfully! {parseResult.summary.validRows} record(s) ready to import.
+                {parseResult.warnings.length > 0 && ` (${parseResult.warnings.length} warning(s) detected).`}
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <Alert variant="destructive" className="rounded-2xl p-4">
+              <XCircle className="h-5 w-5 shrink-0" />
+              <AlertDescription className="text-xs font-semibold ml-2">
+                File validation failed with {parseResult.errors.length} error(s). Please review and fix issues before importing.
               </AlertDescription>
             </Alert>
           )}
 
-          {!parseResult.success && (
-            <Alert variant="destructive">
-              <XCircle className="h-4 w-4" />
-              <AlertDescription>
-                File validation failed. {parseResult.errors.length} errors found. Please review and correct the file.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Validation Details */}
+          {/* Validation Metrics */}
           <Tabs defaultValue="summary" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="summary">Summary</TabsTrigger>
-              <TabsTrigger value="errors" className={parseResult.errors.length > 0 ? "text-red-600" : ""}>
+            <TabsList className="grid w-full grid-cols-3 rounded-xl bg-slate-100 p-1">
+              <TabsTrigger value="summary" className="rounded-lg text-xs font-semibold">Summary Metrics</TabsTrigger>
+              <TabsTrigger value="errors" className={`rounded-lg text-xs font-semibold ${parseResult.errors.length > 0 ? "text-red-600" : ""}`}>
                 Errors ({parseResult.errors.length})
               </TabsTrigger>
-              <TabsTrigger value="warnings" className={parseResult.warnings.length > 0 ? "text-yellow-600" : ""}>
+              <TabsTrigger value="warnings" className={`rounded-lg text-xs font-semibold ${parseResult.warnings.length > 0 ? "text-amber-600" : ""}`}>
                 Warnings ({parseResult.warnings.length})
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="summary">
-              <Card>
-                <CardContent className="pt-6">
+            <TabsContent value="summary" className="mt-3">
+              <Card className="border-0 shadow-xs bg-white rounded-2xl">
+                <CardContent className="p-5">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="p-3 border rounded-lg">
-                      <p className="text-sm text-muted-foreground">Total Records</p>
-                      <p className="text-2xl font-bold">{parseResult.summary.totalRows}</p>
+                    <div className="p-4 border border-slate-200 rounded-xl bg-slate-50">
+                      <p className="text-xs text-slate-500 font-medium">Total Records</p>
+                      <p className="text-2xl font-bold text-[#1c1917] mt-1">{parseResult.summary.totalRows}</p>
                     </div>
-                    <div className="p-3 border rounded-lg bg-green-50 dark:bg-green-950">
-                      <p className="text-sm text-muted-foreground">Valid Records</p>
-                      <p className="text-2xl font-bold text-green-600">{parseResult.summary.validRows}</p>
+                    <div className="p-4 border border-emerald-200 rounded-xl bg-emerald-50/60">
+                      <p className="text-xs text-emerald-700 font-medium">Valid Records</p>
+                      <p className="text-2xl font-bold text-emerald-600 mt-1">{parseResult.summary.validRows}</p>
                     </div>
-                    <div className="p-3 border rounded-lg bg-red-50 dark:bg-red-950">
-                      <p className="text-sm text-muted-foreground">Invalid Records</p>
-                      <p className="text-2xl font-bold text-red-600">{parseResult.summary.invalidRows}</p>
+                    <div className="p-4 border border-rose-200 rounded-xl bg-rose-50/60">
+                      <p className="text-xs text-rose-700 font-medium">Invalid Records</p>
+                      <p className="text-2xl font-bold text-rose-600 mt-1">{parseResult.summary.invalidRows}</p>
                     </div>
-                    <div className="p-3 border rounded-lg bg-blue-50 dark:bg-blue-950">
-                      <p className="text-sm text-muted-foreground">File Size</p>
-                      <p className="text-2xl font-bold text-blue-600">{file ? (file.size / 1024).toFixed(1) : 0} KB</p>
+                    <div className="p-4 border border-teal-200 rounded-xl bg-teal-50/60">
+                      <p className="text-xs text-teal-700 font-medium">File Size</p>
+                      <p className="text-2xl font-bold text-teal-600 mt-1">{file ? (file.size / 1024).toFixed(1) : 0} KB</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
 
-            <TabsContent value="errors">
-              <Card>
-                <CardContent className="pt-6">
+            <TabsContent value="errors" className="mt-3">
+              <Card className="border-0 shadow-xs bg-white rounded-2xl">
+                <CardContent className="p-5">
                   {parseResult.errors.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">No errors found</p>
+                    <p className="text-center text-slate-500 text-xs py-6">No validation errors detected.</p>
                   ) : (
-                    <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                    <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
                       {parseResult.errors.map((error, idx) => (
-                        <div key={idx} className="p-3 border border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-800 rounded-lg">
+                        <div key={idx} className="p-3 border border-rose-200 bg-rose-50/70 rounded-xl">
                           <button
-                            className="w-full text-left flex items-start gap-2 hover:opacity-70"
+                            type="button"
+                            className="w-full text-left flex items-start gap-2"
                             onClick={() => toggleErrorExpanded(idx)}
                           >
-                            <XCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                            <XCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium text-red-700 dark:text-red-400">
-                                {error.column} (Row {error.row})
+                              <p className="font-semibold text-rose-800 text-xs">
+                                Column: {error.column} (Row {error.row})
                               </p>
-                              {expandedErrors.has(idx) && (
-                                <p className="text-sm text-red-600 dark:text-red-300 mt-1">{error.message}</p>
-                              )}
+                              <p className="text-xs text-rose-700 mt-0.5">{error.message}</p>
                             </div>
                           </button>
                         </div>
@@ -437,27 +588,26 @@ W002,2024-05-26T08:45:00Z,clock-in`}
               </Card>
             </TabsContent>
 
-            <TabsContent value="warnings">
-              <Card>
-                <CardContent className="pt-6">
+            <TabsContent value="warnings" className="mt-3">
+              <Card className="border-0 shadow-xs bg-white rounded-2xl">
+                <CardContent className="p-5">
                   {parseResult.warnings.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">No warnings found</p>
+                    <p className="text-center text-slate-500 text-xs py-6">No warnings detected.</p>
                   ) : (
-                    <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                    <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
                       {parseResult.warnings.map((warning, idx) => (
-                        <div key={idx} className="p-3 border border-yellow-200 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-800 rounded-lg">
+                        <div key={idx} className="p-3 border border-amber-200 bg-amber-50/70 rounded-xl">
                           <button
-                            className="w-full text-left flex items-start gap-2 hover:opacity-70"
+                            type="button"
+                            className="w-full text-left flex items-start gap-2"
                             onClick={() => toggleWarningExpanded(idx)}
                           >
-                            <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                            <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium text-yellow-700 dark:text-yellow-400">
-                                {warning.column} (Row {warning.row})
+                              <p className="font-semibold text-amber-800 text-xs">
+                                Column: {warning.column} (Row {warning.row})
                               </p>
-                              {expandedWarnings.has(idx) && (
-                                <p className="text-sm text-yellow-600 dark:text-yellow-300 mt-1">{warning.message}</p>
-                              )}
+                              <p className="text-xs text-amber-700 mt-0.5">{warning.message}</p>
                             </div>
                           </button>
                         </div>
@@ -469,30 +619,34 @@ W002,2024-05-26T08:45:00Z,clock-in`}
             </TabsContent>
           </Tabs>
 
-          {/* Data Preview */}
+          {/* Data Preview Table */}
           {parseResult.data.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Data Preview ({parseResult.data.slice(0, 5).length} of {parseResult.summary.validRows})</CardTitle>
-                <CardDescription>
-                  First few records to be imported
+            <Card className="border-0 shadow-xs bg-white rounded-2xl overflow-hidden">
+              <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
+                <CardTitle className="text-base font-bold text-[#1c1917]">
+                  2. Preview Records ({parseResult.data.slice(0, 5).length} of {parseResult.summary.validRows})
+                </CardTitle>
+                <CardDescription className="text-xs text-slate-500">
+                  Review the first few records before finalizing the bulk import.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="border rounded-lg overflow-hidden overflow-x-auto">
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="bg-slate-50">
                       <TableRow>
                         {Object.keys(parseResult.data[0] || {}).map((key) => (
-                          <TableHead key={key}>{key}</TableHead>
+                          <TableHead key={key} className="text-xs font-bold text-slate-700 uppercase">{key}</TableHead>
                         ))}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {parseResult.data.slice(0, 5).map((record, idx) => (
-                        <TableRow key={idx}>
-                          {Object.values(record).map((value, idx) => (
-                            <TableCell key={idx} className="text-sm">{String(value)}</TableCell>
+                      {parseResult.data.slice(0, 8).map((record, idx) => (
+                        <TableRow key={idx} className="hover:bg-slate-50/60 transition-colors">
+                          {Object.values(record).map((val, cellIdx) => (
+                            <TableCell key={cellIdx} className="text-xs text-slate-800 py-3 font-medium">
+                              {String(val || "—")}
+                            </TableCell>
                           ))}
                         </TableRow>
                       ))}
@@ -503,63 +657,66 @@ W002,2024-05-26T08:45:00Z,clock-in`}
             </Card>
           )}
 
-          {/* Action Buttons */}
-          <div className="flex gap-3">
-            <Button 
+          {/* Final Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <Button
               onClick={handleConfirmImport}
-              disabled={!parseResult.success || importing}
-              className="flex-1"
+              disabled={(!parseResult.success && importType !== "device") || importing}
+              className="flex-1 bg-[#0d9488] hover:bg-[#0f766e] text-white rounded-xl py-5 font-bold shadow-xs text-xs"
             >
               <CheckCircle className="h-4 w-4 mr-2" />
-              {importing ? 'Importing...' : `Confirm Import (${parseResult.summary.validRows} records)`}
+              {importing ? "Processing Import..." : `Confirm & Commit Import (${parseResult.summary.validRows} records)`}
             </Button>
-            <Button
-              variant="outline"
-              onClick={handleReset}
-              className="flex-1"
-            >
-              Cancel
+            <Button variant="outline" onClick={handleReset} className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-100 py-5 text-xs">
+              Cancel & Start Over
             </Button>
           </div>
-        </>
+        </div>
       )}
 
-      {/* Import Instructions */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5" />
-            File Format Requirements
-          </CardTitle>
+      {/* Format Requirements Guide */}
+      <Card className="border-0 shadow-xs bg-white rounded-2xl overflow-hidden">
+        <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4">
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-[#0d9488]" />
+            <CardTitle className="text-base font-bold text-[#1c1917]">File Format Requirements Guide</CardTitle>
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4 text-sm">
-            <div>
-              <h4 className="font-semibold mb-2">Attendance Data</h4>
-              <ul className="space-y-1 text-muted-foreground">
-                <li>• Required columns: Worker ID, Worker Name, Date, Status</li>
-                <li>• Optional columns: Check In Time, Check Out Time, Department</li>
-                <li>• Date format: YYYY-MM-DD (e.g., 2025-01-16)</li>
-                <li>• Time format: HH:MM (e.g., 09:30)</li>
-                <li>• Status values: present, late, or absent</li>
+        <CardContent className="p-6">
+          <div className="grid md:grid-cols-3 gap-6 text-xs">
+            <div className="space-y-2 p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <h4 className="font-bold text-[#1c1917] flex items-center gap-1.5 text-sm">
+                <Calendar className="h-4 w-4 text-[#0d9488]" /> Service Attendance
+              </h4>
+              <ul className="space-y-1 text-slate-600">
+                <li><strong className="text-slate-800">Required:</strong> Worker ID, Worker Name, Date, Status</li>
+                <li><strong className="text-slate-800">Optional:</strong> Check In Time, Check Out Time, Department</li>
+                <li><strong className="text-slate-800">Date Format:</strong> YYYY-MM-DD (e.g. 2026-08-16)</li>
+                <li><strong className="text-slate-800">Status Values:</strong> present, late, absent</li>
               </ul>
             </div>
-            <div>
-              <h4 className="font-semibold mb-2">Workers List</h4>
-              <ul className="space-y-1 text-muted-foreground">
-                <li>• Required columns: Worker ID, Name, Email, Phone Number, Department</li>
-                <li>• Optional columns: Role, Status</li>
-                <li>• Worker ID format: W followed by numbers (e.g., W001)</li>
-                <li>• Email must be valid format (e.g., user@domain.com)</li>
-                <li>• Phone must contain at least 10 digits</li>
+
+            <div className="space-y-2 p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <h4 className="font-bold text-[#1c1917] flex items-center gap-1.5 text-sm">
+                <Users className="h-4 w-4 text-[#0d9488]" /> Volunteers Roster
+              </h4>
+              <ul className="space-y-1 text-slate-600">
+                <li><strong className="text-slate-800">Required:</strong> Worker ID, Name, Email, Phone Number, Department</li>
+                <li><strong className="text-slate-800">Optional:</strong> Role, Status</li>
+                <li><strong className="text-slate-800">Worker ID:</strong> W001, W002, etc.</li>
+                <li><strong className="text-slate-800">Department:</strong> Supports comma-separated for multiple</li>
               </ul>
             </div>
-            <div>
-              <h4 className="font-semibold mb-2">General Requirements</h4>
-              <ul className="space-y-1 text-muted-foreground">
-                <li>• File format: CSV or Excel (.csv, .xlsx, .xls)</li>
-                <li>• Maximum file size: 10MB</li>
-                <li>• Encoding: UTF-8 recommended</li>
+
+            <div className="space-y-2 p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <h4 className="font-bold text-[#1c1917] flex items-center gap-1.5 text-sm">
+                <Cpu className="h-4 w-4 text-[#0d9488]" /> Hardware Devices
+              </h4>
+              <ul className="space-y-1 text-slate-600">
+                <li><strong className="text-slate-800">Required:</strong> Worker ID, Timestamp, Type</li>
+                <li><strong className="text-slate-800">Optional:</strong> Device ID</li>
+                <li><strong className="text-slate-800">Type:</strong> clock-in or clock-out</li>
+                <li><strong className="text-slate-800">Timestamp:</strong> ISO 8601 (2026-08-16T08:45:00Z)</li>
               </ul>
             </div>
           </div>
