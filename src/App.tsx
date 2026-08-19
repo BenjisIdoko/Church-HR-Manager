@@ -295,7 +295,7 @@ export default function App() {
           element={
             currentUser ? (
               <AppLayout user={currentUser} workers={workers} onLogout={handleLogout}>
-                {renderPage(<KioskCheckIn />)}
+                {renderPage(<KioskCheckIn user={currentUser} />)}
               </AppLayout>
             ) : (
               <Navigate to="/" replace />

@@ -23,7 +23,7 @@ import { Badge } from "./ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { toast } from "sonner";
 import { processFileUpload, parseCSVText, CSVParseResult } from "../utils/csvParser";
-import { DeviceImportRequest, importDeviceClockInRecords } from "../utils/api";
+import { DeviceImportRequest, importDeviceClockInRecords, importRecords } from "../utils/api";
 
 type ImportStatus = "idle" | "validating" | "success" | "error";
 type ImportType = "attendance" | "workers" | "device";
@@ -151,19 +151,8 @@ export function DataImportScreen({ onImportComplete }: DataImportScreenProps) {
       } else {
         if (!parseResult?.success) return;
 
-        const response = await fetch("/api/import", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            type: importType,
-            records: parseResult.data,
-          }),
-        });
-
-        const result = await response.json();
-        if (!response.ok || result.ok === false) {
+        const result = await importRecords(importType, parseResult.data);
+        if (result.ok === false) {
           throw new Error(result.message || "Import failed");
         }
 

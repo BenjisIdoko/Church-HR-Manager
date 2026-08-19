@@ -51,22 +51,25 @@ interface WorkerCSVRecord extends Record<string, string | undefined> {
  * Parse CSV text content
  */
 export function parseCSVText(content: string): Record<string, string>[] {
-  const lines = content.trim().split('\n');
+  const lines = content.trim().split(/\r?\n/);
   if (lines.length === 0) return [];
 
   // Parse header
-  const headers = parseCSVLine(lines[0]);
-  if (headers.length === 0) return [];
+  const headers = parseCSVLine(lines[0]).map((h) => h.trim());
+  if (headers.length === 0 || headers.every((h) => h === '')) return [];
 
   // Parse data rows
   const records: Record<string, string>[] = [];
   for (let i = 1; i < lines.length; i++) {
+    const rawLine = lines[i].trim();
+    if (!rawLine) continue;
+
     const values = parseCSVLine(lines[i]);
-    if (values.length === 0) continue;
+    if (values.length === 0 || values.every((v) => v === '')) continue;
 
     const record: Record<string, string> = {};
     headers.forEach((header, index) => {
-      record[header] = values[index] || '';
+      record[header] = values[index] !== undefined ? values[index] : '';
     });
     records.push(record);
   }
@@ -107,7 +110,7 @@ function parseCSVLine(line: string): string[] {
   // Add last field
   result.push(current.trim());
 
-  return result.filter((field) => field !== '');
+  return result;
 }
 
 /**
