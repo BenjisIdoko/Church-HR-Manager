@@ -8,6 +8,7 @@ import { Badge } from "./ui/badge";
 import { DiscipleshipCourse, MemberCourseProgress, Worker } from "../types/models";
 import { fetchDiscipleshipCourses, fetchMemberCourseProgress, updateMemberCourseProgress } from "../utils/api";
 import { toast } from "sonner";
+import { SearchableWorkerSelect } from "./SearchableWorkerSelect";
 
 interface DiscipleshipTrackerProps {
   workers: Worker[];
@@ -264,19 +265,13 @@ export function DiscipleshipTracker({ workers }: DiscipleshipTrackerProps) {
           <form onSubmit={handleEnrollOrUpdate} className="space-y-4 py-2">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-700">Select Church Worker *</label>
-              <select
+              <SearchableWorkerSelect
+                workers={workers}
                 value={enrollWorkerId}
-                onChange={(e) => setEnrollWorkerId(e.target.value)}
-                className="w-full border border-slate-300 rounded-md p-2 text-xs"
+                onChange={(val) => setEnrollWorkerId(val)}
+                placeholder="Search & select volunteer..."
                 required
-              >
-                <option value="">Select Worker...</option>
-                {workers.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name} ({w.department})
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-700">Select Discipleship Course *</label>

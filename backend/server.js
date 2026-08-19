@@ -1116,6 +1116,25 @@ app.post('/api/service-plans', (req, res) => {
   }
 });
 
+app.put('/api/service-plans/:id', (req, res) => {
+  try {
+    const body = req.body || {};
+    const title = body.title;
+    const date = body.date || new Date().toISOString().split('T')[0];
+    const serviceType = body.serviceType || body.service_type || 'Sunday Glorious';
+
+    if (!title) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+
+    statements.updateServicePlan.run(title, date, serviceType, req.params.id);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error updating service plan:', error);
+    res.status(500).json({ error: 'Failed to update service plan' });
+  }
+});
+
 app.delete('/api/service-plans/:id', (req, res) => {
   try {
     statements.deleteServicePlan.run(req.params.id);
@@ -1161,6 +1180,42 @@ app.post('/api/service-plans/:id/items', (req, res) => {
   } catch (error) {
     console.error('Error adding service item:', error);
     res.status(500).json({ error: 'Failed to add service item' });
+  }
+});
+
+app.put('/api/service-plans/items/:itemId', (req, res) => {
+  try {
+    const body = req.body || {};
+    const title = body.title;
+    const durationMinutes = Number(body.durationMinutes || body.duration_minutes || 10);
+    const leaderName = body.leaderName || body.leader_name || null;
+    const notes = body.notes || null;
+
+    statements.updateServiceItem.run(title, durationMinutes, leaderName, notes, req.params.itemId);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error updating service item:', error);
+    res.status(500).json({ error: 'Failed to update service item' });
+  }
+});
+
+app.delete('/api/service-plans/items/:itemId', (req, res) => {
+  try {
+    statements.deleteServiceItem.run(req.params.itemId);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error deleting service item:', error);
+    res.status(500).json({ error: 'Failed to delete service item' });
+  }
+});
+
+app.delete('/api/service-plans/roster/:rosterId', (req, res) => {
+  try {
+    statements.deleteServiceRoster.run(req.params.rosterId);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error deleting service roster:', error);
+    res.status(500).json({ error: 'Failed to delete roster entry' });
   }
 });
 

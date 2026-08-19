@@ -8,6 +8,7 @@ import { Badge } from "./ui/badge";
 import { CellGroup, GroupMember, Worker } from "../types/models";
 import { addGroupMember, createCellGroup, deleteCellGroup, fetchCellGroups, fetchGroupMembers, removeGroupMember, updateCellGroup } from "../utils/api";
 import { toast } from "sonner";
+import { SearchableWorkerSelect } from "./SearchableWorkerSelect";
 
 interface CellGroupsManagementProps {
   workers: Worker[];
@@ -301,18 +302,12 @@ export function CellGroupsManagement({ workers }: CellGroupsManagementProps) {
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700">Designated Leader</label>
-                <select
+                <SearchableWorkerSelect
+                  workers={workers}
                   value={leaderId}
-                  onChange={(e) => setLeaderId(e.target.value)}
-                  className="w-full border border-slate-300 rounded-md p-2 text-xs"
-                >
-                  <option value="">Select Worker Leader</option>
-                  {workers.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name} ({w.department})
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setLeaderId(val)}
+                  placeholder="Search & select group leader..."
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -360,20 +355,16 @@ export function CellGroupsManagement({ workers }: CellGroupsManagementProps) {
             {/* Form to add worker to group */}
             <form onSubmit={handleAddMember} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
               <p className="text-xs font-semibold text-slate-800">Add Member to Group</p>
-              <div className="grid grid-cols-3 gap-2">
-                <select
-                  value={newMemberWorkerId}
-                  onChange={(e) => setNewMemberWorkerId(e.target.value)}
-                  className="col-span-2 text-xs border border-slate-300 rounded p-1.5"
-                  required
-                >
-                  <option value="">Select Worker...</option>
-                  {workers.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name} ({w.department})
-                    </option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-3 gap-2 items-center">
+                <div className="col-span-2">
+                  <SearchableWorkerSelect
+                    workers={workers}
+                    value={newMemberWorkerId}
+                    onChange={(val) => setNewMemberWorkerId(val)}
+                    placeholder="Search & select member..."
+                    required
+                  />
+                </div>
                 <select
                   value={newMemberRole}
                   onChange={(e) => setNewMemberRole(e.target.value as any)}

@@ -142,6 +142,7 @@ export interface ServiceRoster {
   worker_id: number;
   worker_name?: string;
   worker_phone?: string;
+  worker_email?: string;
   role_title: string;
   status: "confirmed" | "pending" | "declined";
 }

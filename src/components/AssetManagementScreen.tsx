@@ -8,6 +8,7 @@ import { Badge } from "./ui/badge";
 import { Asset, AssetMaintenance, Worker } from "../types/models";
 import { addAssetMaintenance, createAsset, deleteAsset, fetchAssetMaintenance, fetchAssets, updateAsset } from "../utils/api";
 import { toast } from "sonner";
+import { SearchableWorkerSelect } from "./SearchableWorkerSelect";
 
 interface AssetManagementScreenProps {
   workers: Worker[];
@@ -184,7 +185,7 @@ export function AssetManagementScreen({ workers }: AssetManagementScreenProps) {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-slate-200">
+        <Card className="border-slate-200 shadow-sm bg-white hover:border-slate-300 transition-all">
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase text-slate-500">Total Asset Inventory</p>
@@ -195,7 +196,7 @@ export function AssetManagementScreen({ workers }: AssetManagementScreenProps) {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-slate-200">
+        <Card className="border-slate-200 shadow-sm bg-white hover:border-slate-300 transition-all">
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase text-slate-500">Est. Total Asset Value</p>
@@ -206,7 +207,7 @@ export function AssetManagementScreen({ workers }: AssetManagementScreenProps) {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-slate-200">
+        <Card className="border-slate-200 shadow-sm bg-white hover:border-slate-300 transition-all">
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase text-slate-500">Good Condition</p>
@@ -219,7 +220,7 @@ export function AssetManagementScreen({ workers }: AssetManagementScreenProps) {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-slate-200">
+        <Card className="border-slate-200 shadow-sm bg-white hover:border-slate-300 transition-all">
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase text-slate-500">Needs Service / Repair</p>
@@ -372,18 +373,12 @@ export function AssetManagementScreen({ workers }: AssetManagementScreenProps) {
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700">Custodian / Assigned Worker</label>
-                <select
+                <SearchableWorkerSelect
+                  workers={workers}
                   value={assignedTo}
-                  onChange={(e) => setAssignedTo(e.target.value)}
-                  className="w-full border border-slate-300 rounded-md p-2 text-xs"
-                >
-                  <option value="">Unassigned</option>
-                  {workers.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name} ({w.department})
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setAssignedTo(val)}
+                  placeholder="Search & select custodian worker..."
+                />
               </div>
             </div>
             <div className="space-y-1.5">

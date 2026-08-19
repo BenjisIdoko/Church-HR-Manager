@@ -8,6 +8,7 @@ import { Badge } from "./ui/badge";
 import { ChurchEvent, Worker } from "../types/models";
 import { createChurchEvent, deleteChurchEvent, fetchChurchEvents } from "../utils/api";
 import { toast } from "sonner";
+import { SearchableWorkerSelect } from "./SearchableWorkerSelect";
 
 interface MasterCalendarProps {
   workers: Worker[];
@@ -229,18 +230,12 @@ export function MasterCalendar({ workers }: MasterCalendarProps) {
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700">Organizer / Host</label>
-                <select
+                <SearchableWorkerSelect
+                  workers={workers}
                   value={organizerId}
-                  onChange={(e) => setOrganizerId(e.target.value)}
-                  className="w-full border border-slate-300 rounded-md p-2 text-xs"
-                >
-                  <option value="">Select Host Worker</option>
-                  {workers.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name} ({w.department})
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setOrganizerId(val)}
+                  placeholder="Search & select host worker..."
+                />
               </div>
             </div>
             <div className="space-y-1.5">

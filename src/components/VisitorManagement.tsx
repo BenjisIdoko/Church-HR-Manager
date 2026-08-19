@@ -8,6 +8,7 @@ import { Badge } from "./ui/badge";
 import { Visitor, VisitorFollowup, Worker } from "../types/models";
 import { addVisitorFollowup, createVisitor, deleteVisitor, fetchVisitorFollowups, fetchVisitors, updateVisitor } from "../utils/api";
 import { toast } from "sonner";
+import { SearchableWorkerSelect } from "./SearchableWorkerSelect";
 
 interface VisitorManagementProps {
   workers: Worker[];
@@ -175,7 +176,7 @@ export function VisitorManagement({ workers }: VisitorManagementProps) {
 
       {/* KPI Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-slate-200">
+        <Card className="border-slate-200 shadow-sm bg-white hover:border-slate-300 transition-all">
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase text-slate-500">Total First-Timers</p>
@@ -186,7 +187,7 @@ export function VisitorManagement({ workers }: VisitorManagementProps) {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-slate-200">
+        <Card className="border-slate-200 shadow-sm bg-white hover:border-slate-300 transition-all">
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase text-slate-500">Pending Contact</p>
@@ -199,7 +200,7 @@ export function VisitorManagement({ workers }: VisitorManagementProps) {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-slate-200">
+        <Card className="border-slate-200 shadow-sm bg-white hover:border-slate-300 transition-all">
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase text-slate-500">Pastoral Visits</p>
@@ -212,7 +213,7 @@ export function VisitorManagement({ workers }: VisitorManagementProps) {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-slate-200">
+        <Card className="border-slate-200 shadow-sm bg-white hover:border-slate-300 transition-all">
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase text-slate-500">Successfully Joined</p>
@@ -349,18 +350,12 @@ export function VisitorManagement({ workers }: VisitorManagementProps) {
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700">Assign Follow-Up Worker</label>
-                <select
+                <SearchableWorkerSelect
+                  workers={workers}
                   value={newAssigned}
-                  onChange={(e) => setNewAssigned(e.target.value)}
-                  className="w-full border border-slate-300 rounded-md p-2 text-xs"
-                >
-                  <option value="">Unassigned</option>
-                  {workers.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name} ({w.department})
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setNewAssigned(val)}
+                  placeholder="Search & select follow-up worker..."
+                />
               </div>
             </div>
             <div className="space-y-1.5">
@@ -404,18 +399,12 @@ export function VisitorManagement({ workers }: VisitorManagementProps) {
                   <option value="whatsapp">WhatsApp</option>
                   <option value="in-person">In-Person Visit</option>
                 </select>
-                <select
+                <SearchableWorkerSelect
+                  workers={workers}
                   value={followupCaller}
-                  onChange={(e) => setFollowupCaller(e.target.value)}
-                  className="text-xs border border-slate-300 rounded p-1.5"
-                >
-                  <option value="">Select Caller/Worker</option>
-                  {workers.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setFollowupCaller(val)}
+                  placeholder="Search caller/worker..."
+                />
               </div>
               <textarea
                 placeholder="Write call feedback or response..."

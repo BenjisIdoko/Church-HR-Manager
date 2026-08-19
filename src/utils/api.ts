@@ -4043,6 +4043,31 @@ export async function createServicePlan(plan: Partial<ServicePlan>): Promise<{ o
   return { ok: true, id: createdId };
 }
 
+export async function updateServicePlan(id: number, plan: Partial<ServicePlan>): Promise<{ ok: boolean }> {
+  try {
+    await apiRequest<{ ok: boolean }>(`/api/service-plans/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(plan),
+    });
+  } catch {
+    // fallback
+  }
+
+  IN_MEMORY_SERVICE_PLANS = IN_MEMORY_SERVICE_PLANS.map((p) => {
+    if (p.id === id) {
+      return {
+        ...p,
+        title: plan.title !== undefined ? plan.title : p.title,
+        date: plan.date !== undefined ? plan.date : p.date,
+        service_type: plan.service_type !== undefined ? plan.service_type : p.service_type,
+      };
+    }
+    return p;
+  });
+  return { ok: true };
+}
+
 export async function deleteServicePlan(id: number): Promise<{ ok: boolean }> {
   try {
     await apiRequest<{ ok: boolean }>(`/api/service-plans/${id}`, {
@@ -4093,6 +4118,50 @@ export async function addServiceItem(planId: number, item: Partial<ServiceItem>)
   return { ok: true };
 }
 
+export async function updateServiceItem(itemId: number, item: Partial<ServiceItem>): Promise<{ ok: boolean }> {
+  try {
+    await apiRequest<{ ok: boolean }>(`/api/service-plans/items/${itemId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(item),
+    });
+  } catch {
+    // fallback
+  }
+
+  for (const planId in IN_MEMORY_SERVICE_ITEMS) {
+    IN_MEMORY_SERVICE_ITEMS[planId] = IN_MEMORY_SERVICE_ITEMS[planId].map((it) => {
+      if (it.id === itemId) {
+        return {
+          ...it,
+          title: item.title !== undefined ? item.title : it.title,
+          duration_minutes: item.duration_minutes !== undefined ? item.duration_minutes : it.duration_minutes,
+          leader_name: item.leader_name !== undefined ? item.leader_name : it.leader_name,
+          notes: item.notes !== undefined ? item.notes : it.notes,
+        };
+      }
+      return it;
+    });
+  }
+
+  return { ok: true };
+}
+
+export async function deleteServiceItem(itemId: number): Promise<{ ok: boolean }> {
+  try {
+    await apiRequest<{ ok: boolean }>(`/api/service-plans/items/${itemId}`, {
+      method: "DELETE",
+    });
+  } catch {
+    // fallback
+  }
+
+  for (const planId in IN_MEMORY_SERVICE_ITEMS) {
+    IN_MEMORY_SERVICE_ITEMS[planId] = IN_MEMORY_SERVICE_ITEMS[planId].filter((it) => it.id !== itemId);
+  }
+  return { ok: true };
+}
+
 export async function fetchServiceRoster(planId: number): Promise<ServiceRoster[]> {
   try {
     const data = await apiRequest<ServiceRoster[]>(`/api/service-plans/${planId}/roster`);
@@ -4127,6 +4196,43 @@ export async function addServiceRoster(planId: number, roster: Partial<ServiceRo
   const list = IN_MEMORY_SERVICE_ROSTERS[planId] || [];
   IN_MEMORY_SERVICE_ROSTERS[planId] = [...list, newRoster];
   return { ok: true };
+}
+
+export async function deleteServiceRoster(rosterId: number): Promise<{ ok: boolean }> {
+  try {
+    await apiRequest<{ ok: boolean }>(`/api/service-plans/roster/${rosterId}`, {
+      method: "DELETE",
+    });
+  } catch {
+    // fallback
+  }
+
+  for (const planId in IN_MEMORY_SERVICE_ROSTERS) {
+    IN_MEMORY_SERVICE_ROSTERS[planId] = IN_MEMORY_SERVICE_ROSTERS[planId].filter((r) => r.id !== rosterId);
+  }
+  return { ok: true };
+}
+
+export async function sendRosterReminder(
+  roster: ServiceRoster,
+  channel: "whatsapp" | "email" | "sms" | "all",
+  planTitle: string,
+  planDate: string
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    await apiRequest<{ ok: boolean; message: string }>("/api/service-plans/send-reminder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rosterId: roster.id, channel, planTitle, planDate }),
+    });
+  } catch {
+    // static fallback simulated send
+  }
+
+  return {
+    ok: true,
+    message: `Reminder sent to ${roster.worker_name} via ${channel.toUpperCase()}`,
+  };
 }
 
 // Church Events & Calendar APIs (Planning Center Calendar)

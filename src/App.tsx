@@ -88,9 +88,15 @@ export default function App() {
         fetchKpis(),
       ]);
 
-      setWorkers(Array.isArray(workersData) ? workersData : []);
+      const safeWorkers = Array.isArray(workersData) ? workersData : [];
+      setWorkers(safeWorkers);
       setAttendanceRecords(Array.isArray(attendanceData) ? attendanceData : []);
       setLastSync(kpiData?.lastSync || new Date().toISOString());
+
+      const volunteerDepts = Array.from(
+        new Set(safeWorkers.map((w) => w?.department).filter((d): d is string => Boolean(d)))
+      );
+      setManualDepartments((prev) => Array.from(new Set([...prev, ...volunteerDepts])));
     } catch (error) {
       console.warn("API load error, using cached/mock data:", error);
     } finally {
@@ -150,6 +156,31 @@ export default function App() {
     const normalized = department.trim();
     if (!normalized) return;
     setManualDepartments((prev) => Array.from(new Set([...prev, normalized])));
+  };
+
+  const handleEditDepartment = (oldDepartment: string, newDepartment: string) => {
+    const oldNorm = oldDepartment.trim();
+    const newNorm = newDepartment.trim();
+    if (!newNorm || oldNorm.toLowerCase() === newNorm.toLowerCase()) return;
+
+    setManualDepartments((prev) =>
+      Array.from(new Set(prev.map((d) => (d.toLowerCase() === oldNorm.toLowerCase() ? newNorm : d))))
+    );
+
+    setWorkers((prev) => {
+      const updated = prev.map((w) => {
+        if (w.department && w.department.toLowerCase() === oldNorm.toLowerCase()) {
+          return { ...w, department: newNorm };
+        }
+        return w;
+      });
+      localStorage.setItem("church_hr_workers", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleRemoveDepartment = (department: string) => {
+    setManualDepartments((prev) => prev.filter((d) => d.toLowerCase() !== department.toLowerCase()));
   };
 
   const handleUpdateProfile = async (updated: {
@@ -397,7 +428,15 @@ export default function App() {
           element={
             currentUser?.role === "superadmin" ? (
               <AppLayout user={currentUser} workers={workers} onLogout={handleLogout}>
-                {renderPage(<Settings departments={departments} onAddDepartment={handleAddDepartment} />)}
+                {renderPage(
+                  <Settings
+                    departments={departments}
+                    workers={workers}
+                    onAddDepartment={handleAddDepartment}
+                    onEditDepartment={handleEditDepartment}
+                    onRemoveDepartment={handleRemoveDepartment}
+                  />
+                )}
               </AppLayout>
             ) : (
               <Navigate to="/" replace />

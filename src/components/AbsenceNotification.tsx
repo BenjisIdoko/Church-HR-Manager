@@ -7,6 +7,7 @@ import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { AlertCircle, Send } from "lucide-react";
 import { Alert, AlertDescription } from "./ui/alert";
+import { toast } from "sonner";
 
 const ABSENCE_REASONS = [
   "School",
@@ -52,7 +53,7 @@ export function AbsenceNotification() {
         throw new Error(result.message || 'Failed to submit absence notification');
       }
 
-      alert('Absence notification submitted successfully!');
+      toast.success('Absence notification submitted successfully!');
       setOpen(false);
       setFormData({
         name: "",

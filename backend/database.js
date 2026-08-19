@@ -830,6 +830,10 @@ const statements = {
     VALUES (?, ?, ?, ?)
   `),
 
+  updateServicePlan: db.prepare(`
+    UPDATE service_plans SET title = ?, date = ?, service_type = ? WHERE id = ?
+  `),
+
   deleteServicePlan: db.prepare('DELETE FROM service_plans WHERE id = ?'),
 
   getServiceItems: db.prepare('SELECT * FROM service_items WHERE plan_id = ? ORDER BY sequence'),
@@ -839,8 +843,14 @@ const statements = {
     VALUES (?, ?, ?, ?, ?, ?)
   `),
 
+  updateServiceItem: db.prepare(`
+    UPDATE service_items SET title = ?, duration_minutes = ?, leader_name = ?, notes = ? WHERE id = ?
+  `),
+
+  deleteServiceItem: db.prepare('DELETE FROM service_items WHERE id = ?'),
+
   getServiceRoster: db.prepare(`
-    SELECT r.*, w.name as worker_name, w.phone as worker_phone
+    SELECT r.*, w.name as worker_name, w.phone as worker_phone, w.email as worker_email
     FROM service_rosters r
     JOIN workers w ON r.worker_id = w.id
     WHERE r.plan_id = ?
@@ -851,6 +861,8 @@ const statements = {
     INSERT INTO service_rosters (plan_id, department, worker_id, role_title, status)
     VALUES (?, ?, ?, ?, ?)
   `),
+
+  deleteServiceRoster: db.prepare('DELETE FROM service_rosters WHERE id = ?'),
 
   // Church Events & Calendar (Planning Center Calendar)
   getAllChurchEvents: db.prepare(`
