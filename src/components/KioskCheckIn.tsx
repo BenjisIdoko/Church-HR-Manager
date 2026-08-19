@@ -1,20 +1,21 @@
 import { useEffect, useState } from "react";
-import { ShieldCheck, UserCheck, Phone, Baby, Search, CheckCircle, LogOut, QrCode, Printer, Lock, Sparkles, LayoutList, Monitor } from "lucide-react";
+import { ShieldCheck, UserCheck, Phone, Baby, Search, CheckCircle, LogOut, QrCode, Printer, Lock, Sparkles, LayoutList, Monitor, ShieldAlert, CheckCircle2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
 import { Badge } from "./ui/badge";
-import { KioskCheckin, User } from "../types/models";
+import { KioskCheckin, User, Worker } from "../types/models";
 import { checkoutKiosk, createKioskCheckin, fetchKioskCheckins } from "../utils/api";
 import { toast } from "sonner";
 import { printReport } from "../utils/exportUtils";
 
 interface KioskCheckInProps {
   user?: User | null;
+  workers?: Worker[];
 }
 
-export function KioskCheckIn({ user }: KioskCheckInProps) {
+export function KioskCheckIn({ user, workers = [] }: KioskCheckInProps) {
   const isAdmin = user?.role === "superadmin" || user?.role === "manager";
 
   // Mode: "kiosk" (Full-Screen User Check-In Form) vs "admin" (Roster & Search View)
@@ -26,7 +27,7 @@ export function KioskCheckIn({ user }: KioskCheckInProps) {
 
   // Kiosk Form State
   const [childName, setChildName] = useState("");
-  const [parentName, setParentName] = useState("");
+  const [parentName, setParentName] = useState(user?.name || "");
   const [parentPhone, setParentPhone] = useState("");
   const [department, setDepartment] = useState("Junior Church (4-8 yrs)");
 
@@ -40,6 +41,20 @@ export function KioskCheckIn({ user }: KioskCheckInProps) {
     timestamp: string;
   } | null>(null);
   const [isBadgeOpen, setIsBadgeOpen] = useState(false);
+
+  // Auto-populate parent details from logged-in user profile
+  useEffect(() => {
+    if (user && user.name) {
+      setParentName(user.name);
+      // Look up phone from matching worker profile if available
+      const matchedWorker = workers.find(
+        (w) => w.id === user.workerId || w.email.toLowerCase() === user.email.toLowerCase()
+      );
+      if (matchedWorker?.phone && !parentPhone) {
+        setParentPhone(matchedWorker.phone);
+      }
+    }
+  }, [user, workers]);
 
   const loadCheckins = async () => {
     try {
@@ -59,9 +74,32 @@ export function KioskCheckIn({ user }: KioskCheckInProps) {
 
   const handleKioskSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!childName.trim() || !parentName.trim() || !parentPhone.trim()) {
-      toast.error("Child name, Parent name, and Phone number are required");
+
+    if (!childName.trim()) {
+      toast.error("Child name is required");
       return;
+    }
+    if (!parentName.trim()) {
+      toast.error("Parent/Guardian name is required");
+      return;
+    }
+    if (!parentPhone.trim()) {
+      toast.error("Parent phone number is required");
+      return;
+    }
+
+    // Security Validation: Enforce logged-in user identity for non-admin accounts
+    if (user && !isAdmin) {
+      const normalizedUser = user.name.trim().toLowerCase();
+      const normalizedInput = parentName.trim().toLowerCase();
+      
+      if (normalizedInput !== normalizedUser) {
+        toast.error(
+          `Security Lock: You are logged in as "${user.name}". Parent/Guardian name must match your authenticated user profile to prevent checking in someone else's child.`
+        );
+        setParentName(user.name);
+        return;
+      }
     }
 
     try {
@@ -73,6 +111,7 @@ export function KioskCheckIn({ user }: KioskCheckInProps) {
       });
 
       const generatedCode = res?.securityCode || `TAG-${Math.floor(1000 + Math.random() * 9000)}`;
+      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
       setLastCheckin({
         childName: childName.trim(),
@@ -80,15 +119,17 @@ export function KioskCheckIn({ user }: KioskCheckInProps) {
         parentPhone: parentPhone.trim(),
         securityCode: generatedCode,
         department,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestamp,
       });
       setIsBadgeOpen(true);
-      toast.success("Child checked in! Security tag generated.");
+      toast.success("Child checked in! Printable security tag generated.");
 
-      // Clear form inputs
+      // Clear child input, preserve parent identity for user
       setChildName("");
-      setParentName("");
-      setParentPhone("");
+      if (!user) {
+        setParentName("");
+        setParentPhone("");
+      }
       void loadCheckins();
     } catch (error) {
       console.error("Check-in error:", error);
@@ -106,27 +147,48 @@ export function KioskCheckIn({ user }: KioskCheckInProps) {
     }
   };
 
+  const getQRCodeUrl = (code: string, child: string, parent: string, phone: string, dept: string, timestamp: string) => {
+    const qrData = `TAG:${code}|CHILD:${child}|PARENT:${parent}|PHONE:${phone}|DEPT:${dept}|TIME:${timestamp}`;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrData)}`;
+  };
+
   const handlePrintBadge = () => {
     if (!lastCheckin) return;
+    const qrUrl = getQRCodeUrl(
+      lastCheckin.securityCode,
+      lastCheckin.childName,
+      lastCheckin.parentName,
+      lastCheckin.parentPhone,
+      lastCheckin.department,
+      lastCheckin.timestamp
+    );
+
     const htmlContent = `
-      <div style="text-align: center; border: 2px dashed #4f46e5; padding: 24px; border-radius: 16px; background-color: #f8fafc; max-w: 400px; margin: 0 auto;">
-        <h2 style="margin: 0; color: #1e1b4b; font-size: 20px;">CHILD & PARENT SECURITY PICK-UP TAG</h2>
-        <p style="color: #64748b; font-size: 12px; margin-top: 4px;">Church Children's Ministry Check-In</p>
+      <div style="text-align: center; border: 3px double #4f46e5; padding: 24px; border-radius: 20px; background-color: #ffffff; max-width: 420px; margin: 0 auto; font-family: system-ui, -apple-system, sans-serif;">
+        <div style="background-color: #4f46e5; color: #ffffff; padding: 12px; border-radius: 12px; margin-bottom: 16px;">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 800; letter-spacing: 1px;">CHURCH CHILDREN'S MINISTRY</h2>
+          <p style="margin: 4px 0 0 0; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Parent-Child Security Pick-Up Tag</p>
+        </div>
         
-        <div style="background-color: #0f172a; color: #818cf8; font-size: 36px; font-weight: 900; letter-spacing: 4px; padding: 16px; border-radius: 12px; margin: 20px 0;">
+        <div style="background-color: #0f172a; color: #818cf8; font-size: 38px; font-family: monospace; font-weight: 900; letter-spacing: 6px; padding: 16px; border-radius: 14px; margin: 16px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
           ${lastCheckin.securityCode}
         </div>
 
-        <table style="width: 100%; text-align: left; font-size: 14px; border-collapse: collapse;">
-          <tr><td style="padding: 6px; font-weight: bold; color: #475569;">Child Name:</td><td style="padding: 6px; font-weight: bold; color: #0f172a;">${lastCheckin.childName}</td></tr>
-          <tr><td style="padding: 6px; font-weight: bold; color: #475569;">Parent/Guardian:</td><td style="padding: 6px; color: #0f172a;">${lastCheckin.parentName} (${lastCheckin.parentPhone})</td></tr>
-          <tr><td style="padding: 6px; font-weight: bold; color: #475569;">Department:</td><td style="padding: 6px; color: #0f172a;">${lastCheckin.department}</td></tr>
-          <tr><td style="padding: 6px; font-weight: bold; color: #475569;">Time Checked-In:</td><td style="padding: 6px; color: #0f172a;">${lastCheckin.timestamp}</td></tr>
+        <div style="margin: 16px 0; text-align: center;">
+          <img src="${qrUrl}" alt="Scannable Security Tag QR Code" width="180" height="180" style="border: 4px solid #f1f5f9; border-radius: 12px; padding: 6px; background: #ffffff; margin: 0 auto;" />
+        </div>
+        <p style="font-size: 10px; color: #64748b; margin-top: -8px; font-weight: 600;">Scan QR code with camera app or kiosk scanner to verify</p>
+
+        <table style="width: 100%; text-align: left; font-size: 13px; border-collapse: collapse; margin-top: 16px; background-color: #f8fafc; border-radius: 10px; padding: 8px;">
+          <tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px; font-weight: bold; color: #475569;">Child Name:</td><td style="padding: 8px; font-weight: 800; color: #0f172a; font-size: 15px;">${lastCheckin.childName}</td></tr>
+          <tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px; font-weight: bold; color: #475569;">Authenticated Parent:</td><td style="padding: 8px; font-weight: 600; color: #0f172a;">${lastCheckin.parentName} (${lastCheckin.parentPhone})</td></tr>
+          <tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px; font-weight: bold; color: #475569;">Department:</td><td style="padding: 8px; color: #4f46e5; font-weight: 600;">${lastCheckin.department}</td></tr>
+          <tr><td style="padding: 8px; font-weight: bold; color: #475569;">Issued Time:</td><td style="padding: 8px; color: #0f172a; font-family: monospace;">${lastCheckin.timestamp}</td></tr>
         </table>
 
-        <p style="margin-top: 20px; font-size: 11px; color: #94a3b8; font-style: italic;">
-          Notice: Parents must present this security tag to pick up child after service.
-        </p>
+        <div style="margin-top: 20px; font-size: 11px; color: #dc2626; background-color: #fef2f2; border: 1px solid #fecaca; padding: 10px; border-radius: 8px; font-weight: 600;">
+          ⚠️ SECURITY REQUIRED: Parents must present this tag or QR code to claim child after service.
+        </div>
       </div>
     `;
     printReport(`Security_Tag_${lastCheckin.securityCode}`, htmlContent);
@@ -191,8 +253,15 @@ export function KioskCheckIn({ user }: KioskCheckInProps) {
                 Self-Service Check-In Station
               </CardTitle>
               <CardDescription className="text-sm text-slate-400 max-w-md mx-auto mt-1">
-                Enter your details to check in your child for Children's Church and generate your security pick-up tag.
+                Enter your child's details to generate a scannable & printable security tag for pick-up.
               </CardDescription>
+
+              {user && (
+                <div className="inline-flex items-center gap-2 mt-3 px-3 py-1.5 rounded-full bg-indigo-950/80 border border-indigo-500/30 text-indigo-300 text-xs font-semibold">
+                  <CheckCircle2 className="w-4 h-4 text-indigo-400" />
+                  Authenticated User Account: <span className="text-white font-bold">{user.name}</span>
+                </div>
+              )}
             </CardHeader>
 
             <CardContent className="p-6 sm:p-10 space-y-6">
@@ -212,18 +281,33 @@ export function KioskCheckIn({ user }: KioskCheckInProps) {
                     />
                   </div>
 
-                  {/* Parent Full Name */}
+                  {/* Parent Full Name (Validated with User Account) */}
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                      <UserCheck className="w-4 h-4 text-indigo-400" /> Parent / Guardian Name *
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <UserCheck className="w-4 h-4 text-indigo-400" /> Parent / Guardian Name *
+                      </span>
+                      {user && !isAdmin && (
+                        <span className="text-[10px] text-indigo-400 flex items-center gap-1">
+                          <Lock className="w-3 h-3" /> Account Locked
+                        </span>
+                      )}
                     </label>
                     <Input
                       placeholder="e.g. Mrs. Sarah Johnson"
                       value={parentName}
                       onChange={(e) => setParentName(e.target.value)}
-                      className="bg-slate-950/80 border-slate-800 text-white placeholder:text-slate-600 h-12 text-sm rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      readOnly={Boolean(user && !isAdmin)}
+                      className={`bg-slate-950/80 border-slate-800 text-white placeholder:text-slate-600 h-12 text-sm rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
+                        user && !isAdmin ? "opacity-80 cursor-not-allowed bg-slate-900/90 text-indigo-200 font-semibold" : ""
+                      }`}
                       required
                     />
+                    {user && !isAdmin && (
+                      <p className="text-[11px] text-slate-400">
+                        * Automatically validated against your authenticated profile ({user.name}) for security.
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -264,13 +348,13 @@ export function KioskCheckIn({ user }: KioskCheckInProps) {
                   className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold h-14 text-base rounded-xl shadow-lg shadow-indigo-600/30 transition-all transform active:scale-[0.99] flex items-center justify-center gap-2"
                 >
                   <ShieldCheck className="w-6 h-6" />
-                  Generate Security Tag & Check In
+                  Generate Printable & Scannable Security Tag
                 </Button>
               </form>
 
               <div className="pt-4 border-t border-slate-800/60 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
                 <Lock className="w-3.5 h-3.5 text-indigo-400" />
-                Parents must keep the security tag code to safely pick up their child after service.
+                Security verification is enforced. Security code or QR tag must be presented to collect child.
               </div>
             </CardContent>
           </Card>
@@ -365,7 +449,7 @@ export function KioskCheckIn({ user }: KioskCheckInProps) {
         </div>
       )}
 
-      {/* Modal: Parent-Child Security Badge Result */}
+      {/* Modal: Parent-Child Security Badge Result (Printable & Scannable QR) */}
       <Dialog open={isBadgeOpen} onOpenChange={setIsBadgeOpen}>
         <DialogContent className="sm:max-w-md text-center p-6 border-slate-800 bg-slate-950 text-white rounded-3xl">
           <DialogHeader>
@@ -377,13 +461,30 @@ export function KioskCheckIn({ user }: KioskCheckInProps) {
 
           {lastCheckin ? (
             <div className="p-6 bg-slate-900 text-white rounded-2xl space-y-4 my-2 border border-slate-800 shadow-2xl">
-              <div className="w-14 h-14 rounded-2xl bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 flex items-center justify-center mx-auto shadow-inner">
-                <QrCode className="w-7 h-7" />
+              {/* Scannable QR Code */}
+              <div className="bg-white p-3 rounded-2xl inline-block shadow-lg mx-auto border-2 border-indigo-500/40">
+                <img
+                  src={getQRCodeUrl(
+                    lastCheckin.securityCode,
+                    lastCheckin.childName,
+                    lastCheckin.parentName,
+                    lastCheckin.parentPhone,
+                    lastCheckin.department,
+                    lastCheckin.timestamp
+                  )}
+                  alt="Scannable Security Tag QR Code"
+                  width={160}
+                  height={160}
+                  className="rounded-xl mx-auto"
+                />
               </div>
+              <p className="text-[11px] text-slate-400 font-semibold">
+                Scan QR Code with mobile camera or scanner to verify pick-up tag.
+              </p>
 
               <div>
                 <p className="text-xs font-bold uppercase tracking-widest text-slate-400">SECURITY PICK-UP TAG CODE</p>
-                <div className="text-4xl font-mono font-black text-indigo-400 tracking-widest mt-2 bg-slate-950 py-3 rounded-xl border border-indigo-500/40 shadow-lg">
+                <div className="text-4xl font-mono font-black text-indigo-400 tracking-widest mt-1 bg-slate-950 py-3 rounded-xl border border-indigo-500/40 shadow-lg">
                   {lastCheckin.securityCode}
                 </div>
               </div>
@@ -391,11 +492,11 @@ export function KioskCheckIn({ user }: KioskCheckInProps) {
               <div className="pt-4 border-t border-slate-800 text-xs space-y-2 text-slate-300 text-left bg-slate-950/60 p-4 rounded-xl">
                 <div className="flex justify-between">
                   <span className="font-semibold text-slate-400">Child Name:</span>
-                  <span className="font-bold text-white">{lastCheckin.childName}</span>
+                  <span className="font-bold text-white text-sm">{lastCheckin.childName}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="font-semibold text-slate-400">Parent / Guardian:</span>
-                  <span className="text-white">{lastCheckin.parentName} ({lastCheckin.parentPhone})</span>
+                  <span className="font-semibold text-slate-400">Authenticated Parent:</span>
+                  <span className="text-white font-semibold">{lastCheckin.parentName} ({lastCheckin.parentPhone})</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="font-semibold text-slate-400">Department:</span>
