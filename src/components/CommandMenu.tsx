@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -15,7 +15,6 @@ import {
   BarChart3,
   Clock,
   Settings as SettingsIcon,
-  User as UserIcon,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -33,6 +32,35 @@ interface CommandMenuProps {
   onOpenChange: (open: boolean) => void;
   userRole?: string;
   workers?: Worker[];
+}
+
+function VolunteerAvatar({ name, profileImage }: { name: string; profileImage?: string }) {
+  const [imgError, setImgError] = useState(false);
+
+  const initials = name
+    .split(" ")
+    .map((n) => n[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase() || "W";
+
+  if (profileImage && !imgError) {
+    return (
+      <img
+        src={profileImage}
+        alt={name}
+        className="h-6 w-6 rounded-full object-cover shrink-0 border border-slate-200"
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+
+  return (
+    <div className="h-6 w-6 rounded-full bg-indigo-100 text-indigo-700 font-bold text-[10px] flex items-center justify-center shrink-0 border border-indigo-200">
+      {initials}
+    </div>
+  );
 }
 
 export function CommandMenu({ open, onOpenChange, userRole = "superadmin", workers = [] }: CommandMenuProps) {
@@ -93,27 +121,13 @@ export function CommandMenu({ open, onOpenChange, userRole = "superadmin", worke
                 <CommandItem
                   key={worker.id}
                   onSelect={() => handleSelectVolunteer(worker)}
-                  className="flex items-center justify-between cursor-pointer"
+                  className="flex items-center justify-between cursor-pointer py-2 px-3 hover:bg-slate-100/80 rounded-lg transition-colors"
                 >
-                  <div className="flex items-center gap-2.5">
-                    {worker.profileImage ? (
-                      <img
-                        src={worker.profileImage}
-                        alt={worker.name}
-                        className="h-6 w-6 rounded-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                        }}
-                      />
-                    ) : null}
-                    {(!worker.profileImage) && (
-                      <div className="h-6 w-6 rounded-full bg-[#4f46e5]/10 text-[#4f46e5] flex items-center justify-center font-bold text-xs">
-                        {worker.name.charAt(0)}
-                      </div>
-                    )}
-                    <span className="font-medium text-[#1c1917]">{worker.name}</span>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <VolunteerAvatar name={worker.name} profileImage={worker.profileImage} />
+                    <span className="font-semibold text-slate-900 text-xs truncate">{worker.name}</span>
                   </div>
-                  <span className="text-xs text-[#78716c] font-normal">{worker.department}</span>
+                  <span className="text-[11px] text-slate-500 font-medium shrink-0 ml-2">{worker.department}</span>
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -125,9 +139,9 @@ export function CommandMenu({ open, onOpenChange, userRole = "superadmin", worke
           {allowedPages.map((page) => {
             const Icon = page.icon;
             return (
-              <CommandItem key={page.path} onSelect={() => handleSelect(page.path)}>
-                <Icon className="mr-2.5 h-4 w-4 text-[#4f46e5]" />
-                <span className="font-medium text-[#1c1917]">{page.title}</span>
+              <CommandItem key={page.path} onSelect={() => handleSelect(page.path)} className="cursor-pointer py-2 px-3 hover:bg-slate-100/80 rounded-lg">
+                <Icon className="mr-2.5 h-4 w-4 text-indigo-600 shrink-0" />
+                <span className="font-semibold text-slate-900 text-xs">{page.title}</span>
               </CommandItem>
             );
           })}
@@ -136,14 +150,14 @@ export function CommandMenu({ open, onOpenChange, userRole = "superadmin", worke
         <CommandSeparator />
         
         <CommandGroup heading="Care & Quick Actions">
-          <CommandItem onSelect={() => handleSelect("/kiosk")}>
-            <QrCode className="mr-2.5 h-4 w-4 text-[#2e7d32]" />
-            <span className="font-medium text-[#1c1917]">Launch Kiosk Check-In</span>
+          <CommandItem onSelect={() => handleSelect("/kiosk")} className="cursor-pointer py-2 px-3 hover:bg-slate-100/80 rounded-lg">
+            <QrCode className="mr-2.5 h-4 w-4 text-emerald-600 shrink-0" />
+            <span className="font-semibold text-slate-900 text-xs">Launch Kiosk Check-In</span>
           </CommandItem>
           {userRole === "superadmin" && (
-            <CommandItem onSelect={() => handleSelect("/import")}>
-              <Upload className="mr-2.5 h-4 w-4 text-[#d97706]" />
-              <span className="font-medium text-[#1c1917]">Import Roster CSV Data</span>
+            <CommandItem onSelect={() => handleSelect("/import")} className="cursor-pointer py-2 px-3 hover:bg-slate-100/80 rounded-lg">
+              <Upload className="mr-2.5 h-4 w-4 text-amber-600 shrink-0" />
+              <span className="font-semibold text-slate-900 text-xs">Import Roster CSV Data</span>
             </CommandItem>
           )}
         </CommandGroup>
