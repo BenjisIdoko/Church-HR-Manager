@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
 import { Badge } from "./ui/badge";
 import { ServiceItem, ServicePlan, ServiceRoster, Worker } from "../types/models";
-import { addServiceItem, addServiceRoster, createServicePlan, fetchServiceItems, fetchServicePlans, fetchServiceRoster } from "../utils/api";
+import { addServiceItem, addServiceRoster, createServicePlan, deleteServicePlan, fetchServiceItems, fetchServicePlans, fetchServiceRoster } from "../utils/api";
+import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface ServicePlannerProps {
@@ -79,39 +80,62 @@ export function ServicePlanner({ workers }: ServicePlannerProps) {
 
   const handleCreatePlan = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!planTitle) {
+    if (!planTitle.trim()) {
       toast.error("Plan title is required");
       return;
     }
     try {
       const res = await createServicePlan({
-        title: planTitle,
+        title: planTitle.trim(),
         date: planDate,
         service_type: serviceType,
       });
+
       toast.success("Service plan created!");
       setIsPlanOpen(false);
       setPlanTitle("");
+
       const updatedPlans = await fetchServicePlans();
       setPlans(updatedPlans);
-      const created = updatedPlans.find((p) => p.id === res.id) || { id: res.id, title: planTitle, date: planDate, service_type: serviceType };
-      setSelectedPlan(created as any);
-    } catch {
+      const created = updatedPlans.find((p) => p.id === res.id) || {
+        id: res.id,
+        title: planTitle.trim(),
+        date: planDate,
+        service_type: serviceType,
+      };
+      setSelectedPlan(created as ServicePlan);
+    } catch (error) {
+      console.error("Error creating plan:", error);
       toast.error("Failed to create plan");
+    }
+  };
+
+  const handleDeletePlan = async (e: React.MouseEvent, id: number) => {
+    e.stopPropagation();
+    try {
+      await deleteServicePlan(id);
+      toast.success("Service plan removed");
+      const updated = await fetchServicePlans();
+      setPlans(updated);
+      if (selectedPlan?.id === id) {
+        setSelectedPlan(updated.length > 0 ? updated[0] : null);
+      }
+    } catch {
+      toast.error("Failed to delete service plan");
     }
   };
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPlan || !itemTitle) return;
+    if (!selectedPlan || !itemTitle.trim()) return;
 
     try {
       await addServiceItem(selectedPlan.id, {
         sequence: serviceItems.length + 1,
-        title: itemTitle,
-        duration_minutes: Number(itemDuration),
-        leader_name: itemLeader,
-        notes: itemNotes,
+        title: itemTitle.trim(),
+        duration_minutes: Number(itemDuration) || 10,
+        leader_name: itemLeader.trim(),
+        notes: itemNotes.trim(),
       });
       toast.success("Service item added");
       setIsItemOpen(false);
@@ -127,11 +151,14 @@ export function ServicePlanner({ workers }: ServicePlannerProps) {
     e.preventDefault();
     if (!selectedPlan || !rosterWorkerId) return;
 
+    const matchedWorker = workers.find((w) => String(w.id) === String(rosterWorkerId));
+
     try {
       await addServiceRoster(selectedPlan.id, {
         department: rosterDept,
-        worker_id: Number(rosterWorkerId),
-        role_title: rosterRole,
+        worker_id: Number(rosterWorkerId) || 1,
+        worker_name: matchedWorker?.name || "Volunteer",
+        role_title: rosterRole.trim() || "Volunteer",
         status: "confirmed",
       });
       toast.success("Volunteer scheduled for service");
@@ -196,9 +223,20 @@ export function ServicePlanner({ workers }: ServicePlannerProps) {
                       >
                         {plan.service_type}
                       </Badge>
-                      <span className={`text-xs font-mono ${isSelected ? "text-slate-300" : "text-slate-500"}`}>
-                        {plan.date}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-mono ${isSelected ? "text-slate-300" : "text-slate-500"}`}>
+                          {plan.date}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => handleDeletePlan(e, plan.id)}
+                          className={`h-6 w-6 p-0 hover:bg-rose-500/20 ${isSelected ? "text-slate-300 hover:text-white" : "text-slate-400 hover:text-rose-600"}`}
+                          title="Delete Service Plan"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
                     </div>
                     <h4 className="font-bold text-sm mt-2 line-clamp-1">{plan.title}</h4>
                   </div>

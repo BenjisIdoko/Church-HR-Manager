@@ -830,6 +830,8 @@ const statements = {
     VALUES (?, ?, ?, ?)
   `),
 
+  deleteServicePlan: db.prepare('DELETE FROM service_plans WHERE id = ?'),
+
   getServiceItems: db.prepare('SELECT * FROM service_items WHERE plan_id = ? ORDER BY sequence'),
 
   insertServiceItem: db.prepare(`

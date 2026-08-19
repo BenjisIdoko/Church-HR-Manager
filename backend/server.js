@@ -1116,6 +1116,16 @@ app.post('/api/service-plans', (req, res) => {
   }
 });
 
+app.delete('/api/service-plans/:id', (req, res) => {
+  try {
+    statements.deleteServicePlan.run(req.params.id);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error deleting service plan:', error);
+    res.status(500).json({ error: 'Failed to delete service plan' });
+  }
+});
+
 app.get('/api/service-plans/:id/items', (req, res) => {
   try {
     const items = statements.getServiceItems.all(req.params.id);
