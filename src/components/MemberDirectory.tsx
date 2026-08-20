@@ -7,7 +7,7 @@ import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Badge } from "./ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { Download, Edit3, ChevronUp, ChevronDown, RotateCcw, Clock2, Upload, Camera, User as UserIcon, X, Plus } from "lucide-react";
+import { Download, Edit3, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw, Clock2, Upload, Camera, User as UserIcon, X, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Worker } from "../types/models";
@@ -48,11 +48,20 @@ export function MemberDirectory({
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   useEffect(() => {
     if (urlSearchQuery) {
       setSearchQuery(urlSearchQuery);
     }
   }, [urlSearchQuery]);
+
+  // Reset to first page when search or filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, departmentFilter, statusFilter, roleFilter]);
 
   const safeWorkers = Array.isArray(workers) ? workers : [];
   const safeDepartments = Array.isArray(departments) ? departments : [];
@@ -80,18 +89,41 @@ export function MemberDirectory({
     [safeWorkers],
   );
 
-  const query = searchQuery.trim().toLowerCase();
+  // Token-based search matching function for flexible, accurate name/field searching
+  const matchWorkerWithQuery = (worker: Worker, rawQuery: string): boolean => {
+    const trimmed = rawQuery.trim().toLowerCase();
+    if (!trimmed) return true;
+
+    const terms = trimmed.split(/\s+/).filter(Boolean);
+    if (terms.length === 0) return true;
+
+    const workerName = (worker.name || "").toLowerCase();
+    const workerId = (worker.id || "").toLowerCase();
+    const workerEmail = (worker.email || "").toLowerCase();
+    const workerPhone = (worker.phone || "").replace(/\D/g, "");
+    const workerRole = (worker.role || "").toLowerCase();
+    const workerStatus = (worker.status || "").toLowerCase();
+
+    const deptsList = (worker.department || "")
+      .split(",")
+      .map((d) => d.trim().toLowerCase());
+    if (Array.isArray(worker.departments)) {
+      worker.departments.forEach((d) => deptsList.push((d || "").trim().toLowerCase()));
+    }
+    const workerDeptsStr = deptsList.join(" ");
+
+    const combinedText = `${workerName} ${workerId} ${workerEmail} ${workerDeptsStr} ${workerRole} ${workerStatus}`;
+
+    return terms.every((term) => {
+      if (combinedText.includes(term)) return true;
+      const digitsOnly = term.replace(/\D/g, "");
+      if (digitsOnly && workerPhone.includes(digitsOnly)) return true;
+      return false;
+    });
+  };
 
   const strictFiltered = safeWorkers.filter((worker) => {
-    const matchesSearch =
-      !query ||
-      (worker.name || "").toLowerCase().includes(query) ||
-      (worker.id || "").toLowerCase().includes(query) ||
-      (worker.email || "").toLowerCase().includes(query) ||
-      (worker.phone || "").toLowerCase().includes(query) ||
-      (worker.department || "").toLowerCase().includes(query) ||
-      (worker.role || "").toLowerCase().includes(query) ||
-      (worker.status || "").toLowerCase().includes(query);
+    const matchesSearch = matchWorkerWithQuery(worker, searchQuery);
 
     const workerDepts = (worker.department || "")
       .split(",")
@@ -123,27 +155,25 @@ export function MemberDirectory({
   });
 
   const isGlobalFallback =
-    query.length > 0 &&
+    searchQuery.trim().length > 0 &&
     strictFiltered.length === 0 &&
     (departmentFilter !== "all" || roleFilter !== "all" || statusFilter !== "all");
 
   const globalFiltered = isGlobalFallback
-    ? safeWorkers.filter((worker) => {
-        return (
-          (worker.name || "").toLowerCase().includes(query) ||
-          (worker.id || "").toLowerCase().includes(query) ||
-          (worker.email || "").toLowerCase().includes(query) ||
-          (worker.phone || "").toLowerCase().includes(query) ||
-          (worker.department || "").toLowerCase().includes(query) ||
-          (worker.role || "").toLowerCase().includes(query) ||
-          (worker.status || "").toLowerCase().includes(query)
-        );
-      })
+    ? safeWorkers.filter((worker) => matchWorkerWithQuery(worker, searchQuery))
     : [];
 
   const filteredWorkers = isGlobalFallback ? globalFiltered : strictFiltered;
 
   const sortedWorkers = sortData(filteredWorkers, sortConfig);
+
+  // Calculate Paginated View
+  const totalItems = sortedWorkers.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safePage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+  const paginatedWorkers = sortedWorkers.slice(startIndex, endIndex);
 
   const handleSort = (key: string) => {
     if (sortConfig?.key === key) {
@@ -347,7 +377,9 @@ export function MemberDirectory({
               </Select>
             </div>
             <div className="flex items-end">
-              <Badge className="bg-slate-100 text-slate-700">Showing {sortedWorkers.length} of {workers.length}</Badge>
+              <Badge className="bg-slate-100 text-slate-700 font-medium text-xs px-2.5 py-1">
+                Showing {totalItems > 0 ? `${startIndex + 1}–${endIndex}` : 0} of {totalItems} (Total: {workers.length})
+              </Badge>
             </div>
           </div>
 
@@ -387,14 +419,14 @@ export function MemberDirectory({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedWorkers.length === 0 ? (
+                {paginatedWorkers.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No volunteers match the current filters.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  sortedWorkers.map((worker) => (
+                  paginatedWorkers.map((worker) => (
                     <TableRow key={worker.id}>
                       <TableCell>
                         {worker.profileImage ? (
@@ -449,6 +481,118 @@ export function MemberDirectory({
               </TableBody>
             </Table>
           </div>
+
+          {/* Pagination Bar */}
+          {totalItems > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 px-3 py-3 bg-[#faf7f2] border border-[#e7e2d8] rounded-xl text-xs text-[#57534e]">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="font-medium text-[#1c1917]">
+                  Showing <strong>{startIndex + 1}–{endIndex}</strong> of <strong>{totalItems}</strong> volunteers
+                  {totalItems !== workers.length && ` (filtered from ${workers.length})`}
+                </span>
+                <div className="flex items-center gap-1.5 ml-0 sm:ml-2">
+                  <span className="text-[#78716c]">Rows:</span>
+                  <Select
+                    value={String(pageSize)}
+                    onValueChange={(val) => {
+                      setPageSize(Number(val));
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 w-16 text-xs bg-white border-[#e7e2d8] rounded-lg">
+                      <SelectValue placeholder={String(pageSize)} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <span className="mr-2 text-[#78716c]">
+                  Page <strong className="text-[#1c1917]">{safePage}</strong> of <strong className="text-[#1c1917]">{totalPages}</strong>
+                </span>
+
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 rounded-lg border-[#e7e2d8] bg-white hover:bg-[#f4f1ea]"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={safePage === 1}
+                  title="First Page"
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 rounded-lg border-[#e7e2d8] bg-white hover:bg-[#f4f1ea]"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={safePage === 1}
+                  title="Previous Page"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+
+                <div className="flex items-center gap-1 mx-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((page) => {
+                      return (
+                        page === 1 ||
+                        page === totalPages ||
+                        Math.abs(page - safePage) <= 1
+                      );
+                    })
+                    .map((page, idx, array) => {
+                      const prevPage = array[idx - 1];
+                      const showEllipsis = prevPage && page - prevPage > 1;
+                      return (
+                        <div key={page} className="flex items-center gap-1">
+                          {showEllipsis && <span className="px-1 text-[#989086]">...</span>}
+                          <Button
+                            variant={safePage === page ? "default" : "outline"}
+                            size="icon"
+                            className={`h-8 w-8 rounded-lg text-xs font-semibold ${
+                              safePage === page
+                                ? "gradient-brand-icon text-white shadow-2xs border-0"
+                                : "border-[#e7e2d8] bg-white text-[#57534e] hover:bg-[#f4f1ea]"
+                            }`}
+                            onClick={() => setCurrentPage(page)}
+                          >
+                            {page}
+                          </Button>
+                        </div>
+                      );
+                    })}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 rounded-lg border-[#e7e2d8] bg-white hover:bg-[#f4f1ea]"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={safePage === totalPages}
+                  title="Next Page"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 rounded-lg border-[#e7e2d8] bg-white hover:bg-[#f4f1ea]"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={safePage === totalPages}
+                  title="Last Page"
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
 
           {editable && selectedWorker && (
             <Dialog open={Boolean(selectedWorker)} onOpenChange={(open) => !open && setSelectedWorker(null)}>
