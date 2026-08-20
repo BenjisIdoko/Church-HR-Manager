@@ -12,7 +12,6 @@ import {
   Menu,
   X,
   Search,
-  Bell,
   UserPlus,
   Home,
   Package,
@@ -58,22 +57,54 @@ interface NavItem {
   badge?: string;
 }
 
-const adminNavItems: NavItem[] = [
-  { path: "/dashboard", icon: LayoutDashboard, label: "Ministry Overview" },
-  { path: "/services", icon: Music, label: "Service Planner" },
-  { path: "/calendar", icon: Calendar, label: "Church Calendar" },
-  { path: "/kiosk", icon: QrCode, label: "Kiosk Check-In" },
-  { path: "/workers", icon: Users, label: "Volunteer Directory" },
-  { path: "/visitors", icon: UserPlus, label: "Visitors & Care", badge: "Care" },
-  { path: "/groups", icon: Home, label: "Cell Groups & Care" },
-  { path: "/discipleship", icon: GraduationCap, label: "Discipleship LMS" },
-  { path: "/assets", icon: Package, label: "Asset Management" },
-  { path: "/attendance", icon: ClipboardList, label: "Attendance Records" },
-  { path: "/reports", icon: BarChart3, label: "Ministry Analytics" },
-  { path: "/clock-in-portal", icon: Clock, label: "Clock-In Portal" },
-  { path: "/import", icon: Upload, label: "Import Records" },
-  { path: "/settings", icon: SettingsIcon, label: "Settings" },
+interface NavGroup {
+  title: string;
+  items: NavItem[];
+}
+
+const adminNavGroups: NavGroup[] = [
+  {
+    title: "Overview",
+    items: [
+      { path: "/dashboard", icon: LayoutDashboard, label: "Ministry Overview" },
+      { path: "/reports", icon: BarChart3, label: "Ministry Analytics" },
+    ],
+  },
+  {
+    title: "People & Care",
+    items: [
+      { path: "/workers", icon: Users, label: "Volunteer Directory" },
+      { path: "/visitors", icon: UserPlus, label: "Visitors & Care", badge: "Care" },
+      { path: "/groups", icon: Home, label: "Cell Groups & Care" },
+      { path: "/discipleship", icon: GraduationCap, label: "Discipleship LMS" },
+    ],
+  },
+  {
+    title: "Services & Events",
+    items: [
+      { path: "/services", icon: Music, label: "Service Planner" },
+      { path: "/calendar", icon: Calendar, label: "Church Calendar" },
+      { path: "/kiosk", icon: QrCode, label: "Kiosk Check-In" },
+    ],
+  },
+  {
+    title: "Operations",
+    items: [
+      { path: "/attendance", icon: ClipboardList, label: "Attendance Records" },
+      { path: "/assets", icon: Package, label: "Asset Management" },
+      { path: "/import", icon: Upload, label: "Import Records" },
+    ],
+  },
+  {
+    title: "Admin",
+    items: [
+      { path: "/clock-in-portal", icon: Clock, label: "Clock-In Portal" },
+      { path: "/settings", icon: SettingsIcon, label: "Settings" },
+    ],
+  },
 ];
+
+const adminNavItems: NavItem[] = adminNavGroups.flatMap((group) => group.items);
 
 const memberNavItems: NavItem[] = [
   { path: "/member", icon: Users, label: "My Profile" },
@@ -157,38 +188,75 @@ export function AppLayout({ children, user, workers = [], onLogout }: AppLayoutP
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-5 space-y-6">
-          <div>
-            <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-[#989086]">
-              Ministry Navigation
-            </p>
-            <nav className="mt-3 space-y-1">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = location.pathname === item.path;
-                return (
-                  <Link key={item.path} to={item.path}>
-                    <div
-                      className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all ${
-                        isActive
-                          ? "gradient-nav-active text-white font-semibold shadow-xs"
-                          : "text-[#57534e] hover:bg-[#f4f1ea] hover:text-[#1c1917]"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-[#78716c]"}`} />
-                        <span>{item.label}</span>
+          {user.role === "superadmin" ? (
+            adminNavGroups.map((group) => (
+              <div key={group.title}>
+                <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-[#989086]">
+                  {group.title}
+                </p>
+                <nav className="mt-2 space-y-1">
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = location.pathname === item.path;
+                    return (
+                      <Link key={item.path} to={item.path}>
+                        <div
+                          className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all ${
+                            isActive
+                              ? "gradient-nav-active text-white font-semibold shadow-xs"
+                              : "text-[#57534e] hover:bg-[#f4f1ea] hover:text-[#1c1917]"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-[#78716c]"}`} />
+                            <span>{item.label}</span>
+                          </div>
+                          {item.badge && (
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive ? "bg-white/20 text-white" : "bg-[#fbeee8] text-[#9a3412]"}`}>
+                              {item.badge}
+                            </span>
+                          )}
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </nav>
+              </div>
+            ))
+          ) : (
+            <div>
+              <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-[#989086]">
+                Ministry Navigation
+              </p>
+              <nav className="mt-3 space-y-1">
+                {navItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.path;
+                  return (
+                    <Link key={item.path} to={item.path}>
+                      <div
+                        className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all ${
+                          isActive
+                            ? "gradient-nav-active text-white font-semibold shadow-xs"
+                            : "text-[#57534e] hover:bg-[#f4f1ea] hover:text-[#1c1917]"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-[#78716c]"}`} />
+                          <span>{item.label}</span>
+                        </div>
+                        {item.badge && (
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive ? "bg-white/20 text-white" : "bg-[#fbeee8] text-[#9a3412]"}`}>
+                            {item.badge}
+                          </span>
+                        )}
                       </div>
-                      {item.badge && (
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive ? "bg-white/20 text-white" : "bg-[#fbeee8] text-[#9a3412]"}`}>
-                          {item.badge}
-                        </span>
-                      )}
-                    </div>
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+          )}
         </div>
 
         <div className="p-4 border-t border-[#e7e2d8]">
@@ -244,41 +312,88 @@ export function AppLayout({ children, user, workers = [], onLogout }: AppLayoutP
             </div>
 
             {/* Navigation Links */}
-            <div className="flex-1 overflow-y-auto pr-1 space-y-1">
-              <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-                All Modules ({navItems.length})
-              </p>
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = location.pathname === item.path;
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    onClick={() => setSidebarOpen(false)}
-                  >
-                    <div
-                      className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-medium transition-all ${
-                        isActive
-                          ? "gradient-nav-active text-white font-semibold shadow-xs"
-                          : "text-[#57534e] hover:bg-[#f4f1ea] hover:text-[#1c1917]"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-500"}`} />
-                        <span>{item.label}</span>
-                      </div>
-                      {item.badge ? (
-                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${isActive ? "bg-white/20 text-white" : "bg-[#fbeee8] text-[#9a3412]"}`}>
-                          {item.badge}
-                        </span>
-                      ) : (
-                        <ChevronRight className={`h-3.5 w-3.5 ${isActive ? "text-white/70" : "text-slate-300"}`} />
-                      )}
+            <div className="flex-1 overflow-y-auto pr-1 space-y-4">
+              {user.role === "superadmin" ? (
+                adminNavGroups.map((group) => (
+                  <div key={group.title}>
+                    <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                      {group.title}
+                    </p>
+                    <div className="space-y-1">
+                      {group.items.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = location.pathname === item.path;
+                        return (
+                          <Link
+                            key={item.path}
+                            to={item.path}
+                            onClick={() => setSidebarOpen(false)}
+                          >
+                            <div
+                              className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-medium transition-all ${
+                                isActive
+                                  ? "gradient-nav-active text-white font-semibold shadow-xs"
+                                  : "text-[#57534e] hover:bg-[#f4f1ea] hover:text-[#1c1917]"
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-500"}`} />
+                                <span>{item.label}</span>
+                              </div>
+                              {item.badge ? (
+                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${isActive ? "bg-white/20 text-white" : "bg-[#fbeee8] text-[#9a3412]"}`}>
+                                  {item.badge}
+                                </span>
+                              ) : (
+                                <ChevronRight className={`h-3.5 w-3.5 ${isActive ? "text-white/70" : "text-slate-300"}`} />
+                              )}
+                            </div>
+                          </Link>
+                        );
+                      })}
                     </div>
-                  </Link>
-                );
-              })}
+                  </div>
+                ))
+              ) : (
+                <div>
+                  <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                    Ministry Navigation
+                  </p>
+                  <div className="space-y-1">
+                    {navItems.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = location.pathname === item.path;
+                      return (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          onClick={() => setSidebarOpen(false)}
+                        >
+                          <div
+                            className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-medium transition-all ${
+                              isActive
+                                ? "gradient-nav-active text-white font-semibold shadow-xs"
+                                : "text-[#57534e] hover:bg-[#f4f1ea] hover:text-[#1c1917]"
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-500"}`} />
+                              <span>{item.label}</span>
+                            </div>
+                            {item.badge ? (
+                              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${isActive ? "bg-white/20 text-white" : "bg-[#fbeee8] text-[#9a3412]"}`}>
+                                {item.badge}
+                              </span>
+                            ) : (
+                              <ChevronRight className={`h-3.5 w-3.5 ${isActive ? "text-white/70" : "text-slate-300"}`} />
+                            )}
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Footer Sign Out */}
@@ -340,16 +455,6 @@ export function AppLayout({ children, user, workers = [], onLogout }: AppLayoutP
 
             <div className="flex items-center gap-1.5 sm:gap-2">
               <AbsenceNotification />
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setCommandOpen(true)}
-                className="rounded-xl text-[#57534e] hover:bg-[#f4f1ea] h-8 w-8 sm:h-9 sm:w-9"
-                title="Notifications & Quick Command"
-              >
-                <Bell className="h-4 w-4" />
-              </Button>
 
               <div className="h-5 w-px bg-[#e7e2d8] mx-0.5" />
 
