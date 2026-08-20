@@ -3525,6 +3525,42 @@ export async function saveWorker(worker: Worker): Promise<Worker> {
   return worker;
 }
 
+export async function renameDepartment(oldDepartment: string, newDepartment: string): Promise<{ ok: boolean }> {
+  const oldNorm = oldDepartment.trim();
+  const newNorm = newDepartment.trim();
+
+  // Persist department rename in localStorage for Vercel static hosting and offline fallback
+  try {
+    const cached = localStorage.getItem("church_hr_workers");
+    if (cached) {
+      const workersList: Worker[] = JSON.parse(cached);
+      if (Array.isArray(workersList)) {
+        const updated = workersList.map((w) => {
+          if (w.department && w.department.trim().toLowerCase() === oldNorm.toLowerCase()) {
+            return { ...w, department: newNorm };
+          }
+          return w;
+        });
+        localStorage.setItem("church_hr_workers", JSON.stringify(updated));
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to update department in localStorage:", err);
+  }
+
+  try {
+    const res = await apiRequest<{ ok: boolean }>("/api/departments/rename", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ oldDepartment: oldNorm, newDepartment: newNorm }),
+    });
+    return res;
+  } catch (error) {
+    console.warn("Failed to rename department in backend (using client storage fallback):", error);
+    return { ok: true };
+  }
+}
+
 
 // Clock-In System APIs
 export interface ClockInRequest {

@@ -21,7 +21,8 @@ import { MasterCalendar } from "./components/MasterCalendar";
 import { KioskCheckIn } from "./components/KioskCheckIn";
 import { Toaster } from "./components/ui/sonner";
 import { Alert, AlertDescription } from "./components/ui/alert";
-import { fetchAttendance, fetchKpis, fetchWorkers, saveWorker } from "./utils/api";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { fetchAttendance, fetchKpis, fetchWorkers, renameDepartment, saveWorker } from "./utils/api";
 import { AttendanceRecord, User, Worker } from "./types/models";
 
 interface UpdateHistoryEntry {
@@ -158,25 +159,25 @@ export default function App() {
     setManualDepartments((prev) => Array.from(new Set([...prev, normalized])));
   };
 
-  const handleEditDepartment = (oldDepartment: string, newDepartment: string) => {
+  const handleEditDepartment = async (oldDepartment: string, newDepartment: string) => {
     const oldNorm = oldDepartment.trim();
     const newNorm = newDepartment.trim();
     if (!newNorm || oldNorm.toLowerCase() === newNorm.toLowerCase()) return;
+
+    await renameDepartment(oldNorm, newNorm);
 
     setManualDepartments((prev) =>
       Array.from(new Set(prev.map((d) => (d.toLowerCase() === oldNorm.toLowerCase() ? newNorm : d))))
     );
 
-    setWorkers((prev) => {
-      const updated = prev.map((w) => {
+    setWorkers((prev) =>
+      prev.map((w) => {
         if (w.department && w.department.toLowerCase() === oldNorm.toLowerCase()) {
           return { ...w, department: newNorm };
         }
         return w;
-      });
-      localStorage.setItem("church_hr_workers", JSON.stringify(updated));
-      return updated;
-    });
+      })
+    );
   };
 
   const handleRemoveDepartment = (department: string) => {
@@ -225,7 +226,8 @@ export default function App() {
   );
 
   return (
-    <Router>
+    <ErrorBoundary>
+      <Router>
       <Routes>
         <Route
           path="/"
@@ -489,6 +491,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Toaster />
-    </Router>
+      </Router>
+    </ErrorBoundary>
   );
 }

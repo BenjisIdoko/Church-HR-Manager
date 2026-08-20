@@ -428,6 +428,24 @@ app.put('/api/workers/:workerId', (req, res) => {
   }
 })
 
+app.put('/api/departments/rename', (req, res) => {
+  const { oldDepartment, newDepartment } = req.body || {};
+
+  if (!oldDepartment || !newDepartment) {
+    return res.status(400).json({ ok: false, message: 'oldDepartment and newDepartment are required.' });
+  }
+
+  try {
+    const oldNorm = String(oldDepartment).trim();
+    const newNorm = String(newDepartment).trim();
+    const result = statements.renameDepartment.run(newNorm, oldNorm);
+    res.json({ ok: true, changes: result.changes });
+  } catch (error) {
+    console.error('Error renaming department:', error);
+    res.status(500).json({ ok: false, message: 'Failed to rename department.' });
+  }
+})
+
 app.post('/api/upload-profile-image', upload.single('image'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ ok: false, message: 'No image file provided' });

@@ -361,6 +361,12 @@ const statements = {
 
   deleteWorker: db.prepare('DELETE FROM workers WHERE id = ?'),
 
+  renameDepartment: db.prepare(`
+    UPDATE workers
+    SET dept = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE dept = ?
+  `),
+
   // Attendance
   insertAttendance: db.prepare(`
     INSERT INTO attendance (worker_id, service, status, date)
