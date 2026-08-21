@@ -21,6 +21,7 @@ import {
 import { AttendanceRecord } from "../types/models";
 import { useNavigate } from "react-router-dom";
 import { sortData, SortConfig, exportToCSV } from "../utils/tableUtils";
+import { DatePicker } from "./ui/date-picker";
 import { toast } from "sonner";
 
 interface AttendanceOverviewProps {
@@ -244,15 +245,7 @@ export function AttendanceOverview({ attendanceRecords, loading = false }: Atten
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-700">Service Date</label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                <Input
-                  type="date"
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  className="pl-9 text-xs"
-                />
-              </div>
+              <DatePicker value={dateFilter} onChange={setDateFilter} placeholder="Filter by date..." />
             </div>
 
             <div className="space-y-1.5">

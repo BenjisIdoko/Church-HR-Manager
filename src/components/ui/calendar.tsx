@@ -16,55 +16,55 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("p-3", className)}
+      className={cn("p-4 bg-white rounded-2xl shadow-xl border border-[#e7e2d8]", className)}
       classNames={{
-        months: "flex flex-col sm:flex-row gap-2",
-        month: "flex flex-col gap-4",
-        caption: "flex justify-center pt-1 relative items-center w-full",
-        caption_label: "text-sm font-medium",
+        months: "flex flex-col sm:flex-row gap-4",
+        month: "flex flex-col gap-3",
+        caption: "flex justify-between pt-1 relative items-center w-full px-1 mb-2",
+        caption_label: "text-sm font-bold text-[#1c1917]",
         nav: "flex items-center gap-1",
         nav_button: cn(
           buttonVariants({ variant: "outline" }),
-          "size-7 bg-transparent p-0 opacity-50 hover:opacity-100",
+          "h-7 w-7 bg-[#fbf9f5] border-[#e7e2d8] p-0 text-[#57534e] hover:bg-[#f4f1ea] hover:text-[#1c1917] rounded-lg transition-colors",
         ),
-        nav_button_previous: "absolute left-1",
-        nav_button_next: "absolute right-1",
-        table: "w-full border-collapse space-x-1",
-        head_row: "flex",
+        nav_button_previous: "static",
+        nav_button_next: "static",
+        table: "w-full border-collapse space-y-1",
+        head_row: "flex justify-between mb-1",
         head_cell:
-          "text-muted-foreground rounded-md w-8 font-normal text-[0.8rem]",
-        row: "flex w-full mt-2",
+          "text-[#989086] rounded-md w-9 font-semibold text-[0.75rem] uppercase tracking-wider text-center",
+        row: "flex w-full justify-between mt-1.5",
         cell: cn(
-          "relative p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-accent [&:has([aria-selected].day-range-end)]:rounded-r-md",
+          "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
           props.mode === "range"
-            ? "[&:has(>.day-range-end)]:rounded-r-md [&:has(>.day-range-start)]:rounded-l-md first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md"
-            : "[&:has([aria-selected])]:rounded-md",
+            ? "[&:has(>.day-range-end)]:rounded-r-xl [&:has(>.day-range-start)]:rounded-l-xl first:[&:has([aria-selected])]:rounded-l-xl last:[&:has([aria-selected])]:rounded-r-xl"
+            : "[&:has([aria-selected])]:rounded-xl",
         ),
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          "size-8 p-0 font-normal aria-selected:opacity-100",
+          "h-9 w-9 p-0 font-medium text-xs text-[#1c1917] hover:bg-[#f4f1ea] hover:text-[#1c1917] rounded-xl transition-all aria-selected:opacity-100",
         ),
         day_range_start:
-          "day-range-start aria-selected:bg-primary aria-selected:text-primary-foreground",
+          "day-range-start aria-selected:bg-[#4f46e5] aria-selected:text-white font-bold shadow-xs",
         day_range_end:
-          "day-range-end aria-selected:bg-primary aria-selected:text-primary-foreground",
+          "day-range-end aria-selected:bg-[#4f46e5] aria-selected:text-white font-bold shadow-xs",
         day_selected:
-          "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-        day_today: "bg-accent text-accent-foreground",
+          "bg-[#4f46e5] text-white hover:bg-[#4338ca] hover:text-white focus:bg-[#4f46e5] focus:text-white font-bold shadow-sm rounded-xl",
+        day_today: "bg-[#e0e7ff] text-[#3730a3] font-bold border border-[#4f46e5]/30 rounded-xl",
         day_outside:
-          "day-outside text-muted-foreground aria-selected:text-muted-foreground",
-        day_disabled: "text-muted-foreground opacity-50",
+          "day-outside text-[#c2bbb0] opacity-40 aria-selected:text-muted-foreground",
+        day_disabled: "text-[#c2bbb0] opacity-30 cursor-not-allowed",
         day_range_middle:
-          "aria-selected:bg-accent aria-selected:text-accent-foreground",
+          "aria-selected:bg-[#e0e7ff] aria-selected:text-[#3730a3] rounded-none",
         day_hidden: "invisible",
         ...classNames,
       }}
       components={{
         IconLeft: ({ className, ...props }) => (
-          <ChevronLeft className={cn("size-4", className)} {...props} />
+          <ChevronLeft className={cn("h-4 w-4 text-[#57534e]", className)} {...props} />
         ),
         IconRight: ({ className, ...props }) => (
-          <ChevronRight className={cn("size-4", className)} {...props} />
+          <ChevronRight className={cn("h-4 w-4 text-[#57534e]", className)} {...props} />
         ),
       }}
       {...props}

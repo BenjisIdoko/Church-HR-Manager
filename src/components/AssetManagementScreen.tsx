@@ -8,6 +8,7 @@ import { Badge } from "./ui/badge";
 import { Asset, AssetMaintenance, Worker } from "../types/models";
 import { addAssetMaintenance, createAsset, deleteAsset, fetchAssetMaintenance, fetchAssets, updateAsset } from "../utils/api";
 import { toast } from "sonner";
+import { DatePicker } from "./ui/date-picker";
 import { SearchableWorkerSelect } from "./SearchableWorkerSelect";
 
 interface AssetManagementScreenProps {
@@ -409,7 +410,7 @@ export function AssetManagementScreen({ workers }: AssetManagementScreenProps) {
             <form onSubmit={handleAddMaintenance} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
               <p className="text-xs font-semibold text-slate-800">Record Service or Repair</p>
               <div className="grid grid-cols-2 gap-2">
-                <Input type="date" value={serviceDate} onChange={(e) => setServiceDate(e.target.value)} required />
+                <DatePicker value={serviceDate} onChange={setServiceDate} />
                 <Input placeholder="Service Cost ($)" type="number" value={cost} onChange={(e) => setCost(e.target.value)} />
               </div>
               <Input placeholder="Technician / Company Name" value={performedBy} onChange={(e) => setPerformedBy(e.target.value)} required />

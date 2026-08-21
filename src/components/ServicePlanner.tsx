@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Music, Clock, Users, Plus, Calendar, CheckCircle2, UserCheck, Play, Sparkles, Pencil, Trash2, Send, Mail, MessageSquare, Phone, Bell, Share2, AlertCircle, FileText, Printer, Copy } from "lucide-react";
+import { DatePicker } from "./ui/date-picker";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
@@ -767,7 +768,7 @@ Please confirm your attendance. God bless you!`;
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700">Service Date</label>
-                <Input type="date" value={planDate} onChange={(e) => setPlanDate(e.target.value)} required />
+                <DatePicker value={planDate} onChange={setPlanDate} />
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700">Service Type</label>

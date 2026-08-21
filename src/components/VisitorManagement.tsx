@@ -9,6 +9,7 @@ import { Visitor, VisitorFollowup, Worker } from "../types/models";
 import { addVisitorFollowup, createVisitor, deleteVisitor, fetchVisitorFollowups, fetchVisitors, updateVisitor } from "../utils/api";
 import { toast } from "sonner";
 import { SearchableWorkerSelect } from "./SearchableWorkerSelect";
+import { DatePicker } from "./ui/date-picker";
 
 interface VisitorManagementProps {
   workers: Worker[];
@@ -346,7 +347,7 @@ export function VisitorManagement({ workers }: VisitorManagementProps) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700">First Visit Date</label>
-                <Input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} />
+                <DatePicker value={newDate} onChange={setNewDate} />
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700">Assign Follow-Up Worker</label>

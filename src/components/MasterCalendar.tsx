@@ -10,6 +10,8 @@ import { createChurchEvent, deleteChurchEvent, fetchChurchEvents } from "../util
 import { toast } from "sonner";
 import { SearchableWorkerSelect } from "./SearchableWorkerSelect";
 
+import { DatePicker } from "./ui/date-picker";
+
 interface MasterCalendarProps {
   workers: Worker[];
 }
@@ -202,7 +204,7 @@ export function MasterCalendar({ workers }: MasterCalendarProps) {
             <div className="grid grid-cols-3 gap-2">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700">Date *</label>
-                <Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} required />
+                <DatePicker value={eventDate} onChange={setEventDate} />
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700">Start Time</label>

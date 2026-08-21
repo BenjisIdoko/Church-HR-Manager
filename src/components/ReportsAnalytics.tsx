@@ -35,8 +35,9 @@ import {
   Area,
 } from "recharts";
 import { Badge } from "./ui/badge";
-import { AttendanceRecord } from "../types/models";
+import { Worker, AttendanceRecord } from "../types/models";
 import { downloadCSV, printReport } from "../utils/exportUtils";
+import { DatePicker } from "./ui/date-picker";
 import { toast } from "sonner";
 
 const DONUT_COLORS = ["#10b981", "#f59e0b", "#f43f5e"]; // Emerald, Amber, Rose
@@ -371,28 +372,12 @@ export function ReportsAnalytics({ attendanceRecords, loading = false }: Reports
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700">Start Date</Label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                <Input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="pl-9 text-xs"
-                />
-              </div>
+              <DatePicker value={startDate} onChange={setStartDate} placeholder="Select start date..." />
             </div>
 
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700">End Date</Label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                <Input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="pl-9 text-xs"
-                />
-              </div>
+              <DatePicker value={endDate} onChange={setEndDate} placeholder="Select end date..." />
             </div>
 
             <div className="space-y-1.5">

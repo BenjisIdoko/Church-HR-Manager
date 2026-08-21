@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { AlertCircle, Send } from "lucide-react";
 import { Alert, AlertDescription } from "./ui/alert";
 import { toast } from "sonner";
+import { DatePicker } from "./ui/date-picker";
 
 const ABSENCE_REASONS = [
   "School",
@@ -146,21 +147,18 @@ export function AbsenceNotification() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="dateFrom">From Date *</Label>
-              <Input
-                id="dateFrom"
-                type="date"
+              <DatePicker
                 value={formData.dateFrom}
-                onChange={(e) => handleInputChange('dateFrom', e.target.value)}
-                required
+                onChange={(val) => handleInputChange('dateFrom', val)}
+                placeholder="Select start date"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="dateTo">To Date (optional)</Label>
-              <Input
-                id="dateTo"
-                type="date"
+              <DatePicker
                 value={formData.dateTo}
-                onChange={(e) => handleInputChange('dateTo', e.target.value)}
+                onChange={(val) => handleInputChange('dateTo', val)}
+                placeholder="Select end date"
               />
             </div>
           </div>
