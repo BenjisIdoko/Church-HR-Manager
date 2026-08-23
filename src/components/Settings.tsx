@@ -32,6 +32,8 @@ import { Badge } from "./ui/badge";
 import { toast } from "sonner";
 import { Worker } from "../types/models";
 
+import { getSystemCurrency, saveSystemCurrency } from "../utils/currencyUtils";
+
 interface SettingsProps {
   departments: string[];
   workers?: Worker[];
@@ -47,7 +49,7 @@ export function Settings({ departments, workers = [], onAddDepartment, onEditDep
   const [orgPhone, setOrgPhone] = useState("+234 800 123 4567");
   const [orgEmail, setOrgEmail] = useState("contact@churchhr.org");
   const [timezone, setTimezone] = useState("Africa/Lagos (GMT+1)");
-  const [currency, setCurrency] = useState("NGN (₦)");
+  const [currency, setCurrency] = useState(getSystemCurrency());
 
   const [adminName, setAdminName] = useState("Super Admin");
   const [adminEmail, setAdminEmail] = useState("admin@churchhr.org");
@@ -69,6 +71,7 @@ export function Settings({ departments, workers = [], onAddDepartment, onEditDep
 
   const handleSaveOrganization = (e: React.FormEvent) => {
     e.preventDefault();
+    saveSystemCurrency(currency);
     toast.success("Organization profile & system settings saved successfully!");
   };
 

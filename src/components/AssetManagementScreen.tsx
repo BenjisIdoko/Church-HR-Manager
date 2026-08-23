@@ -10,6 +10,7 @@ import { addAssetMaintenance, createAsset, deleteAsset, fetchAssetMaintenance, f
 import { toast } from "sonner";
 import { DatePicker } from "./ui/date-picker";
 import { SearchableWorkerSelect } from "./SearchableWorkerSelect";
+import { formatCurrency, getCurrencySymbol } from "../utils/currencyUtils";
 
 interface AssetManagementScreenProps {
   workers: Worker[];
@@ -20,6 +21,15 @@ export function AssetManagementScreen({ workers }: AssetManagementScreenProps) {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [sysCurrency, setSysCurrency] = useState(() => getCurrencySymbol());
+
+  useEffect(() => {
+    const handleCurrencyChange = () => {
+      setSysCurrency(getCurrencySymbol());
+    };
+    window.addEventListener("system-currency-changed", handleCurrencyChange);
+    return () => window.removeEventListener("system-currency-changed", handleCurrencyChange);
+  }, []);
 
   // Create/Edit Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -211,10 +221,10 @@ export function AssetManagementScreen({ workers }: AssetManagementScreenProps) {
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase text-slate-500">Est. Total Asset Value</p>
-              <p className="text-2xl font-bold text-slate-900 mt-1">${totalValue.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-slate-900 mt-1">{formatCurrency(totalValue)}</p>
             </div>
-            <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <DollarSign className="w-5 h-5" />
+            <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg">
+              {sysCurrency}
             </div>
           </CardContent>
         </Card>
@@ -317,7 +327,7 @@ export function AssetManagementScreen({ workers }: AssetManagementScreenProps) {
                         {asset.status.replace("-", " ")}
                       </Badge>
                     </td>
-                    <td className="p-4 font-medium text-slate-900 text-xs">${asset.value.toLocaleString()}</td>
+                    <td className="p-4 font-medium text-slate-900 text-xs">{formatCurrency(asset.value)}</td>
                     <td className="p-4 text-right space-x-1">
                       <Button size="sm" variant="ghost" onClick={() => handleOpenMaintenance(asset)} className="h-8 px-2 text-xs" title="Maintenance Log">
                         <Wrench className="w-3.5 h-3.5" />
@@ -393,7 +403,7 @@ export function AssetManagementScreen({ workers }: AssetManagementScreenProps) {
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700">Estimated Value ($)</label>
+              <label className="text-xs font-semibold text-slate-700">Estimated Value ({sysCurrency})</label>
               <Input type="number" placeholder="2500" value={value} onChange={(e) => setValue(e.target.value)} />
             </div>
             <DialogFooter>
@@ -421,7 +431,7 @@ export function AssetManagementScreen({ workers }: AssetManagementScreenProps) {
               <p className="text-xs font-semibold text-slate-800">Record Service or Repair</p>
               <div className="grid grid-cols-2 gap-2">
                 <DatePicker value={serviceDate} onChange={setServiceDate} />
-                <Input placeholder="Service Cost ($)" type="number" value={cost} onChange={(e) => setCost(e.target.value)} />
+                <Input placeholder={`Service Cost (${sysCurrency})`} type="number" value={cost} onChange={(e) => setCost(e.target.value)} />
               </div>
               <Input placeholder="Technician / Company Name" value={performedBy} onChange={(e) => setPerformedBy(e.target.value)} required />
               <textarea
@@ -445,7 +455,7 @@ export function AssetManagementScreen({ workers }: AssetManagementScreenProps) {
                   <div key={m.id} className="p-3 bg-white border border-slate-200 rounded-lg text-xs space-y-1 shadow-sm">
                     <div className="flex items-center justify-between text-slate-500 font-medium">
                       <span>Date: {m.service_date} • Tech: {m.performed_by}</span>
-                      <span className="font-bold text-slate-900">${m.cost}</span>
+                      <span className="font-bold text-slate-900">{formatCurrency(m.cost)}</span>
                     </div>
                     {m.notes ? <p className="text-slate-800">{m.notes}</p> : null}
                   </div>
