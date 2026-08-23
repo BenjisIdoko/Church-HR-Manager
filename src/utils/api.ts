@@ -3588,10 +3588,10 @@ export interface ClockInResponse {
 
 const DEFAULT_CLOCK_IN_SETTINGS: ClockInSettings = {
   clock_in_portal_enabled: "true",
-  clock_in_portal_name: "Sunday Glorious Service Portal",
-  clock_in_portal_description: "GPS Geofenced Clock-In for USHAFA Church Members",
-  church_latitude: "9.167389",
-  church_longitude: "7.402685",
+  clock_in_portal_name: "Church Clock-In Portal",
+  clock_in_portal_description: "GPS Geofenced Clock-In for Church Grounds",
+  church_latitude: "9.0765",
+  church_longitude: "7.3986",
   geofence_radius_meters: "200",
   device_import_enabled: "true",
 };
