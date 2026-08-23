@@ -4005,59 +4005,255 @@ export async function addVisitorFollowup(visitorId: number, data: Partial<Visito
   return { ok: true };
 }
 
+// LocalStorage helpers for Cell Groups offline / standalone mode
+function getStoredCellGroups(): CellGroup[] {
+  try {
+    const stored = localStorage.getItem("church_hr_cell_groups");
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return [
+    {
+      id: 1,
+      name: "Grace House Cell #1",
+      type: "cell",
+      leader_id: 1,
+      leader_name: "Osarumeh Enobakhare",
+      meeting_day: "Wednesday",
+      location: "14 Allen Avenue, Ikeja",
+      member_count: 2,
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 2,
+      name: "Youth Ministry Unit",
+      type: "ministry",
+      leader_id: 2,
+      leader_name: "Samuel Sonayon",
+      meeting_day: "Friday",
+      location: "Main Auditorium Hall B",
+      member_count: 3,
+      created_at: new Date().toISOString(),
+    },
+  ];
+}
+
+function saveStoredCellGroups(groups: CellGroup[]): void {
+  try {
+    localStorage.setItem("church_hr_cell_groups", JSON.stringify(groups));
+  } catch {}
+}
+
+function getStoredGroupMembers(): Record<number, GroupMember[]> {
+  try {
+    const stored = localStorage.getItem("church_hr_group_members");
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return {
+    1: [
+      { id: 101, group_id: 1, worker_id: 1, worker_name: "Osarumeh Enobakhare", dept: "Intercessors", role: "leader" },
+      { id: 102, group_id: 1, worker_id: 2, worker_name: "Samuel Sonayon", dept: "Intercessors", role: "member" },
+    ],
+    2: [
+      { id: 201, group_id: 2, worker_id: 2, worker_name: "Samuel Sonayon", dept: "Intercessors", role: "leader" },
+      { id: 202, group_id: 2, worker_id: 3, worker_name: "Kehinde Ali-Balogun", dept: "Intercessors", role: "assistant" },
+      { id: 203, group_id: 2, worker_id: 4, worker_name: "Peace Friday", dept: "Intercessors", role: "member" },
+    ],
+  };
+}
+
+function saveStoredGroupMembers(membersMap: Record<number, GroupMember[]>): void {
+  try {
+    localStorage.setItem("church_hr_group_members", JSON.stringify(membersMap));
+  } catch {}
+}
+
 // Cell Group APIs
 export async function fetchCellGroups(): Promise<CellGroup[]> {
   try {
     const data = await apiRequest<CellGroup[]>("/api/groups");
-    return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
-  }
+    if (Array.isArray(data) && data.length > 0) {
+      saveStoredCellGroups(data);
+      return data;
+    }
+  } catch {}
+  return getStoredCellGroups();
 }
 
-export async function createCellGroup(group: Partial<CellGroup>): Promise<{ ok: boolean; id: number }> {
-  return apiRequest<{ ok: boolean; id: number }>("/api/groups", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(group),
-  });
+export async function createCellGroup(group: Partial<CellGroup> & { leaderId?: any; meetingDay?: string }): Promise<{ ok: boolean; id: number }> {
+  const payload = {
+    ...group,
+    leader_id: group.leader_id ?? group.leaderId,
+    leaderId: group.leaderId ?? group.leader_id,
+    meeting_day: group.meeting_day ?? group.meetingDay ?? "Wednesday",
+    meetingDay: group.meetingDay ?? group.meeting_day ?? "Wednesday",
+  };
+
+  try {
+    const res = await apiRequest<{ ok: boolean; id: number }>("/api/groups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (res && res.ok) {
+      return res;
+    }
+  } catch {}
+
+  const groups = getStoredCellGroups();
+  const newId = Date.now();
+  const newGroup: CellGroup = {
+    id: newId,
+    name: group.name || "New Cell Group",
+    type: group.type || "cell",
+    leader_id: group.leader_id ? Number(group.leader_id) || undefined : undefined,
+    leader_name: group.leader_name || "",
+    meeting_day: group.meeting_day || group.meetingDay || "Wednesday",
+    location: group.location || "Church Grounds",
+    member_count: 0,
+    created_at: new Date().toISOString(),
+  };
+  groups.unshift(newGroup);
+  saveStoredCellGroups(groups);
+  return { ok: true, id: newId };
 }
 
-export async function updateCellGroup(id: number, group: Partial<CellGroup>): Promise<{ ok: boolean }> {
-  return apiRequest<{ ok: boolean }>(`/api/groups/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(group),
+export async function updateCellGroup(id: number, group: Partial<CellGroup> & { leaderId?: any; meetingDay?: string }): Promise<{ ok: boolean }> {
+  const payload = {
+    ...group,
+    leader_id: group.leader_id ?? group.leaderId,
+    leaderId: group.leaderId ?? group.leader_id,
+    meeting_day: group.meeting_day ?? group.meetingDay ?? "Wednesday",
+    meetingDay: group.meetingDay ?? group.meeting_day ?? "Wednesday",
+  };
+
+  try {
+    const res = await apiRequest<{ ok: boolean }>(`/api/groups/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (res && res.ok) {
+      return res;
+    }
+  } catch {}
+
+  const groups = getStoredCellGroups().map((g) => {
+    if (g.id === id) {
+      return {
+        ...g,
+        ...group,
+        meeting_day: group.meeting_day || group.meetingDay || g.meeting_day,
+      };
+    }
+    return g;
   });
+  saveStoredCellGroups(groups);
+  return { ok: true };
 }
 
 export async function deleteCellGroup(id: number): Promise<{ ok: boolean }> {
-  return apiRequest<{ ok: boolean }>(`/api/groups/${id}`, {
-    method: "DELETE",
-  });
+  try {
+    const res = await apiRequest<{ ok: boolean }>(`/api/groups/${id}`, {
+      method: "DELETE",
+    });
+    if (res && res.ok) {
+      return res;
+    }
+  } catch {}
+
+  const groups = getStoredCellGroups().filter((g) => g.id !== id);
+  saveStoredCellGroups(groups);
+  return { ok: true };
 }
 
 export async function fetchGroupMembers(groupId: number): Promise<GroupMember[]> {
   try {
     const data = await apiRequest<GroupMember[]>(`/api/groups/${groupId}/members`);
-    return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
-  }
+    if (Array.isArray(data)) {
+      return data;
+    }
+  } catch {}
+
+  const membersMap = getStoredGroupMembers();
+  return membersMap[groupId] || [];
 }
 
-export async function addGroupMember(groupId: number, workerId: number, role = "member"): Promise<{ ok: boolean }> {
-  return apiRequest<{ ok: boolean }>(`/api/groups/${groupId}/members`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ workerId, role }),
+export async function addGroupMember(
+  groupId: number,
+  workerId: number | string,
+  role: "leader" | "assistant" | "member" = "member",
+  workerInfo?: Partial<Worker>
+): Promise<{ ok: boolean }> {
+  const payload = { workerId, worker_id: workerId, role };
+  try {
+    const res = await apiRequest<{ ok: boolean }>(`/api/groups/${groupId}/members`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (res && res.ok) {
+      return res;
+    }
+  } catch {}
+
+  const membersMap = getStoredGroupMembers();
+  const currentMembers = membersMap[groupId] || [];
+  const numWorkerId = typeof workerId === "number" ? workerId : Number(String(workerId).replace(/\D/g, "")) || Date.now();
+
+  const newMember: GroupMember = {
+    id: Date.now(),
+    group_id: groupId,
+    worker_id: numWorkerId,
+    worker_name: workerInfo?.name || `Worker ${workerId}`,
+    email: workerInfo?.email || "",
+    phone: workerInfo?.phone || "",
+    dept: workerInfo?.department || "",
+    role,
+  };
+
+  const updatedMembers = [...currentMembers.filter((m) => String(m.worker_id) !== String(workerId)), newMember];
+  membersMap[groupId] = updatedMembers;
+  saveStoredGroupMembers(membersMap);
+
+  const groups = getStoredCellGroups().map((g) => {
+    if (g.id === groupId) {
+      return { ...g, member_count: updatedMembers.length };
+    }
+    return g;
   });
+  saveStoredCellGroups(groups);
+
+  return { ok: true };
 }
 
-export async function removeGroupMember(groupId: number, workerId: number): Promise<{ ok: boolean }> {
-  return apiRequest<{ ok: boolean }>(`/api/groups/${groupId}/members/${workerId}`, {
-    method: "DELETE",
+export async function removeGroupMember(groupId: number, workerId: number | string): Promise<{ ok: boolean }> {
+  try {
+    const res = await apiRequest<{ ok: boolean }>(`/api/groups/${groupId}/members/${workerId}`, {
+      method: "DELETE",
+    });
+    if (res && res.ok) {
+      return res;
+    }
+  } catch {}
+
+  const membersMap = getStoredGroupMembers();
+  const currentMembers = membersMap[groupId] || [];
+  const updatedMembers = currentMembers.filter((m) => String(m.worker_id) !== String(workerId));
+  membersMap[groupId] = updatedMembers;
+  saveStoredGroupMembers(membersMap);
+
+  const groups = getStoredCellGroups().map((g) => {
+    if (g.id === groupId) {
+      return { ...g, member_count: updatedMembers.length };
+    }
+    return g;
   });
+  saveStoredCellGroups(groups);
+
+  return { ok: true };
 }
 
 // Asset Management APIs

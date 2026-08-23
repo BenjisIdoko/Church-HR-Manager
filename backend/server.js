@@ -200,6 +200,29 @@ function findOrCreateWorker(externalId, name, dept) {
   return result.lastInsertRowid;
 }
 
+function resolveWorkerDbId(input) {
+  if (input === undefined || input === null || input === "") return null;
+  const str = String(input).trim();
+  if (!str) return null;
+
+  if (/^\d+$/.test(str)) {
+    const workerById = statements.getWorkerById.get(Number(str));
+    if (workerById) return workerById.id;
+  }
+
+  const workerByExt = statements.getWorkerByExternalId.get(str);
+  if (workerByExt) return workerByExt.id;
+
+  const matchDigits = str.match(/\d+/);
+  if (matchDigits) {
+    const num = Number(matchDigits[0]);
+    const workerById = statements.getWorkerById.get(num);
+    if (workerById) return workerById.id;
+  }
+
+  return null;
+}
+
 function getSettingValue(key, fallback = null) {
   try {
     const row = statements.getSetting.get(key);
@@ -899,12 +922,16 @@ app.get('/api/groups', (req, res) => {
 
 app.post('/api/groups', (req, res) => {
   try {
-    const { name, type, leaderId, meetingDay, location } = req.body;
+    const { name, type, leaderId, leader_id, meetingDay, meeting_day, location } = req.body;
+    const rawLeader = leaderId !== undefined ? leaderId : leader_id;
+    const rawMeetingDay = meetingDay !== undefined ? meetingDay : meeting_day;
+    const resolvedLeaderId = resolveWorkerDbId(rawLeader);
+
     const result = statements.insertCellGroup.run(
       name,
       type || 'cell',
-      leaderId ? Number(leaderId) : null,
-      meetingDay || 'Wednesday',
+      resolvedLeaderId,
+      rawMeetingDay || 'Wednesday',
       location || 'Church Grounds'
     );
     res.json({ ok: true, id: result.lastInsertRowid });
@@ -916,12 +943,16 @@ app.post('/api/groups', (req, res) => {
 
 app.put('/api/groups/:id', (req, res) => {
   try {
-    const { name, type, leaderId, meetingDay, location } = req.body;
+    const { name, type, leaderId, leader_id, meetingDay, meeting_day, location } = req.body;
+    const rawLeader = leaderId !== undefined ? leaderId : leader_id;
+    const rawMeetingDay = meetingDay !== undefined ? meetingDay : meeting_day;
+    const resolvedLeaderId = resolveWorkerDbId(rawLeader);
+
     statements.updateCellGroup.run(
       name,
       type || 'cell',
-      leaderId ? Number(leaderId) : null,
-      meetingDay || 'Wednesday',
+      resolvedLeaderId,
+      rawMeetingDay || 'Wednesday',
       location || 'Church Grounds',
       req.params.id
     );
@@ -954,8 +985,15 @@ app.get('/api/groups/:id/members', (req, res) => {
 
 app.post('/api/groups/:id/members', (req, res) => {
   try {
-    const { workerId, role } = req.body;
-    statements.addGroupMember.run(req.params.id, workerId, role || 'member');
+    const { workerId, worker_id, role } = req.body;
+    const rawWorker = workerId !== undefined ? workerId : worker_id;
+    const resolvedWorkerId = resolveWorkerDbId(rawWorker);
+
+    if (!resolvedWorkerId) {
+      return res.status(400).json({ error: 'Invalid or missing worker ID' });
+    }
+
+    statements.addGroupMember.run(req.params.id, resolvedWorkerId, role || 'member');
     res.json({ ok: true });
   } catch (error) {
     console.error('Error adding group member:', error);
@@ -965,7 +1003,8 @@ app.post('/api/groups/:id/members', (req, res) => {
 
 app.delete('/api/groups/:id/members/:workerId', (req, res) => {
   try {
-    statements.removeGroupMember.run(req.params.id, req.params.workerId);
+    const resolvedWorkerId = resolveWorkerDbId(req.params.workerId) || req.params.workerId;
+    statements.removeGroupMember.run(req.params.id, resolvedWorkerId);
     res.json({ ok: true });
   } catch (error) {
     console.error('Error removing group member:', error);

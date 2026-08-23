@@ -79,12 +79,21 @@ export function CellGroupsManagement({ workers }: CellGroupsManagementProps) {
       return;
     }
 
+    const selectedLeader = workers.find((w) => String(w.id) === String(leaderId));
+    const leaderName = selectedLeader?.name;
+    const parsedLeaderId = leaderId
+      ? !isNaN(Number(leaderId))
+        ? Number(leaderId)
+        : (selectedLeader as any)?.dbId || leaderId
+      : undefined;
+
     try {
       if (editingGroup) {
         await updateCellGroup(editingGroup.id, {
           name,
           type,
-          leader_id: leaderId ? Number(leaderId) : undefined,
+          leader_id: parsedLeaderId as any,
+          leader_name: leaderName,
           meeting_day: meetingDay,
           location,
         });
@@ -93,7 +102,8 @@ export function CellGroupsManagement({ workers }: CellGroupsManagementProps) {
         await createCellGroup({
           name,
           type,
-          leader_id: leaderId ? Number(leaderId) : undefined,
+          leader_id: parsedLeaderId as any,
+          leader_name: leaderName,
           meeting_day: meetingDay,
           location,
         });
@@ -135,8 +145,13 @@ export function CellGroupsManagement({ workers }: CellGroupsManagementProps) {
       return;
     }
 
+    const selectedWorker = workers.find((w) => String(w.id) === String(newMemberWorkerId));
+    const parsedWorkerId = !isNaN(Number(newMemberWorkerId))
+      ? Number(newMemberWorkerId)
+      : (selectedWorker as any)?.dbId || newMemberWorkerId;
+
     try {
-      await addGroupMember(selectedGroup.id, Number(newMemberWorkerId), newMemberRole);
+      await addGroupMember(selectedGroup.id, parsedWorkerId, newMemberRole, selectedWorker);
       toast.success("Member added to group");
       const updated = await fetchGroupMembers(selectedGroup.id);
       setGroupMembers(updated);
@@ -147,7 +162,7 @@ export function CellGroupsManagement({ workers }: CellGroupsManagementProps) {
     }
   };
 
-  const handleRemoveMember = async (workerId: number) => {
+  const handleRemoveMember = async (workerId: number | string) => {
     if (!selectedGroup) return;
     try {
       await removeGroupMember(selectedGroup.id, workerId);
