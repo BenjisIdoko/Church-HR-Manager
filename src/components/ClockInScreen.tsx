@@ -11,6 +11,7 @@ import {
   formatDistance,
   watchLocation,
   stopWatchingLocation,
+  isWithinGeofence,
   CHURCH_LOCATION,
   GEOFENCE_RADIUS_METERS,
   SERVICE_START_TIME,
@@ -160,6 +161,27 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
     }
   };
 
+  const [refreshingLoc, setRefreshingLoc] = useState(false);
+
+  const handleRefreshLocation = async () => {
+    setRefreshingLoc(true);
+    setError(null);
+    try {
+      const loc = await getCurrentLocation();
+      const { isWithin: within, distance: dist } = isWithinGeofence(loc, geofenceConfig);
+      setDistance(dist);
+      setAccuracy(loc.accuracy ?? null);
+      setIsWithin(within);
+      toast.success("Location acquired successfully");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to retrieve location";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setRefreshingLoc(false);
+    }
+  };
+
   const formatTime = (timestamp: string) => {
     return new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   };
@@ -261,7 +283,7 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
             </div>
 
             {/* Status Guidance Message */}
-            <div className="max-w-md space-y-1">
+            <div className="max-w-md space-y-2">
               <p className="text-sm font-bold text-[#1c1917]">
                 {clockStatus?.isClockedIn ? "You are currently Clocked In" : "Ready to Clock In"}
               </p>
@@ -271,17 +293,38 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
                   : !isWithin && distance !== null
                   ? `Move closer to church grounds (${formatDistance(distance)} away, threshold: ${geofenceConfig.radiusMeters}m).`
                   : distance === null
-                  ? "Acquiring GPS satellite position..."
+                  ? "Acquiring GPS position..."
                   : "You are on church grounds. Tap above to register your timestamp."}
               </p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleRefreshLocation}
+                disabled={refreshingLoc}
+                className="text-xs gap-1.5 h-7 rounded-lg text-indigo-600 border-indigo-200 hover:bg-indigo-50 mt-1"
+              >
+                {refreshingLoc ? <Loader className="w-3 h-3 animate-spin" /> : <Navigation className="w-3 h-3" />}
+                {refreshingLoc ? "Acquiring Location..." : "Refresh Location"}
+              </Button>
             </div>
           </div>
 
           {/* Feedback Alerts */}
           {error && (
-            <Alert variant="destructive" className="max-w-lg mx-auto rounded-xl">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="text-xs">{error}</AlertDescription>
+            <Alert variant="destructive" className="max-w-lg mx-auto rounded-xl flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <AlertDescription className="text-xs">{error}</AlertDescription>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleRefreshLocation}
+                disabled={refreshingLoc}
+                className="h-6 px-2 text-[10px] text-white underline hover:bg-red-700 shrink-0 ml-2"
+              >
+                Retry
+              </Button>
             </Alert>
           )}
 

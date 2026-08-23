@@ -4009,9 +4009,9 @@ export async function addVisitorFollowup(visitorId: number, data: Partial<Visito
 function getStoredCellGroups(): CellGroup[] {
   try {
     const stored = localStorage.getItem("church_hr_cell_groups");
-    if (stored) {
+    if (stored !== null) {
       const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) return parsed;
     }
   } catch {}
   return [
@@ -4074,9 +4074,13 @@ function saveStoredGroupMembers(membersMap: Record<number, GroupMember[]>): void
 export async function fetchCellGroups(): Promise<CellGroup[]> {
   try {
     const data = await apiRequest<CellGroup[]>("/api/groups");
-    if (Array.isArray(data) && data.length > 0) {
-      saveStoredCellGroups(data);
-      return data;
+    if (Array.isArray(data)) {
+      const stored = getStoredCellGroups();
+      const backendIds = new Set(data.map((g) => g.id));
+      const localOnly = stored.filter((g) => !backendIds.has(g.id));
+      const combined = [...data, ...localOnly];
+      saveStoredCellGroups(combined);
+      return combined;
     }
   } catch {}
   return getStoredCellGroups();
@@ -4091,6 +4095,20 @@ export async function createCellGroup(group: Partial<CellGroup> & { leaderId?: a
     meetingDay: group.meetingDay ?? group.meeting_day ?? "Wednesday",
   };
 
+  const groups = getStoredCellGroups();
+  const newId = Date.now();
+  const newGroup: CellGroup = {
+    id: newId,
+    name: group.name || "New Cell Group",
+    type: group.type || "cell",
+    leader_id: group.leader_id as any,
+    leader_name: group.leader_name || "",
+    meeting_day: group.meeting_day || group.meetingDay || "Wednesday",
+    location: group.location || "Church Grounds",
+    member_count: 0,
+    created_at: new Date().toISOString(),
+  };
+
   try {
     const res = await apiRequest<{ ok: boolean; id: number }>("/api/groups", {
       method: "POST",
@@ -4098,23 +4116,12 @@ export async function createCellGroup(group: Partial<CellGroup> & { leaderId?: a
       body: JSON.stringify(payload),
     });
     if (res && res.ok) {
+      newGroup.id = res.id || newId;
+      saveStoredCellGroups([newGroup, ...groups.filter((g) => g.id !== newGroup.id)]);
       return res;
     }
   } catch {}
 
-  const groups = getStoredCellGroups();
-  const newId = Date.now();
-  const newGroup: CellGroup = {
-    id: newId,
-    name: group.name || "New Cell Group",
-    type: group.type || "cell",
-    leader_id: group.leader_id ? Number(group.leader_id) || undefined : undefined,
-    leader_name: group.leader_name || "",
-    meeting_day: group.meeting_day || group.meetingDay || "Wednesday",
-    location: group.location || "Church Grounds",
-    member_count: 0,
-    created_at: new Date().toISOString(),
-  };
   groups.unshift(newGroup);
   saveStoredCellGroups(groups);
   return { ok: true, id: newId };
@@ -4129,6 +4136,18 @@ export async function updateCellGroup(id: number, group: Partial<CellGroup> & { 
     meetingDay: group.meetingDay ?? group.meeting_day ?? "Wednesday",
   };
 
+  const updatedGroups = getStoredCellGroups().map((g) => {
+    if (g.id === id) {
+      return {
+        ...g,
+        ...group,
+        meeting_day: group.meeting_day || group.meetingDay || g.meeting_day,
+      };
+    }
+    return g;
+  });
+  saveStoredCellGroups(updatedGroups);
+
   try {
     const res = await apiRequest<{ ok: boolean }>(`/api/groups/${id}`, {
       method: "PUT",
@@ -4140,21 +4159,13 @@ export async function updateCellGroup(id: number, group: Partial<CellGroup> & { 
     }
   } catch {}
 
-  const groups = getStoredCellGroups().map((g) => {
-    if (g.id === id) {
-      return {
-        ...g,
-        ...group,
-        meeting_day: group.meeting_day || group.meetingDay || g.meeting_day,
-      };
-    }
-    return g;
-  });
-  saveStoredCellGroups(groups);
   return { ok: true };
 }
 
 export async function deleteCellGroup(id: number): Promise<{ ok: boolean }> {
+  const updatedGroups = getStoredCellGroups().filter((g) => g.id !== id);
+  saveStoredCellGroups(updatedGroups);
+
   try {
     const res = await apiRequest<{ ok: boolean }>(`/api/groups/${id}`, {
       method: "DELETE",
@@ -4164,8 +4175,6 @@ export async function deleteCellGroup(id: number): Promise<{ ok: boolean }> {
     }
   } catch {}
 
-  const groups = getStoredCellGroups().filter((g) => g.id !== id);
-  saveStoredCellGroups(groups);
   return { ok: true };
 }
 

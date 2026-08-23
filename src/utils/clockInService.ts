@@ -139,7 +139,7 @@ function getGeolocationContextError(): string {
 }
 
 /**
- * Get current geolocation from browser
+ * Get current geolocation from browser with automatic fallback for slow GPS locks
  */
 export function getCurrentLocation(): Promise<LocationCoordinates> {
   return new Promise((resolve, reject) => {
@@ -153,6 +153,7 @@ export function getCurrentLocation(): Promise<LocationCoordinates> {
       return;
     }
 
+    // Try high accuracy first with a reasonable 8s timeout
     navigator.geolocation.getCurrentPosition(
       (position) => {
         resolve({
@@ -162,24 +163,43 @@ export function getCurrentLocation(): Promise<LocationCoordinates> {
         });
       },
       (error) => {
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            reject(new Error("Location permission denied. Please enable location access."));
-            break;
-          case error.POSITION_UNAVAILABLE:
-            reject(new Error("Location information is unavailable."));
-            break;
-          case error.TIMEOUT:
-            reject(new Error("Location request timed out."));
-            break;
-          default:
-            reject(new Error("Unable to retrieve your location"));
+        // Fall back to standard network/cell/wifi location on timeout or position unavailable
+        if (error.code === error.TIMEOUT || error.code === error.POSITION_UNAVAILABLE) {
+          navigator.geolocation.getCurrentPosition(
+            (fallbackPos) => {
+              resolve({
+                latitude: fallbackPos.coords.latitude,
+                longitude: fallbackPos.coords.longitude,
+                accuracy: fallbackPos.coords.accuracy,
+              });
+            },
+            (fallbackErr) => {
+              let msg = "Unable to retrieve your location.";
+              if (fallbackErr.code === fallbackErr.PERMISSION_DENIED) {
+                msg = "Location permission denied. Please enable location access in browser settings.";
+              } else if (fallbackErr.code === fallbackErr.TIMEOUT) {
+                msg = "Location request timed out. Please check location permissions or try clicking 'Refresh Location'.";
+              } else if (fallbackErr.code === fallbackErr.POSITION_UNAVAILABLE) {
+                msg = "Location position unavailable.";
+              }
+              reject(new Error(msg));
+            },
+            {
+              enableHighAccuracy: false,
+              timeout: 15000,
+              maximumAge: 30000,
+            }
+          );
+        } else if (error.code === error.PERMISSION_DENIED) {
+          reject(new Error("Location permission denied. Please enable location access in browser settings."));
+        } else {
+          reject(new Error("Unable to retrieve your location"));
         }
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
+        timeout: 8000,
+        maximumAge: 10000,
       }
     );
   });
@@ -247,15 +267,15 @@ export function watchLocation(
           message = "Location unavailable";
           break;
         case error.TIMEOUT:
-          message = "Location request timeout";
+          message = "Location request timed out. Retrying...";
           break;
       }
       onError(message);
     },
     {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 5000,
+      enableHighAccuracy: false,
+      timeout: 20000,
+      maximumAge: 10000,
     }
   );
 
