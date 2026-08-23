@@ -1025,16 +1025,19 @@ app.get('/api/assets', (req, res) => {
 
 app.post('/api/assets', (req, res) => {
   try {
-    const { assetTag, name, category, location, assignedTo, status, purchaseDate, value } = req.body;
-    const tag = assetTag || `AST-${Date.now().toString().slice(-6)}`;
+    const { assetTag, asset_tag, name, category, location, assignedTo, assigned_to, status, purchaseDate, purchase_date, value } = req.body;
+    const tag = assetTag || asset_tag || `AST-${Date.now().toString().slice(-6)}`;
+    const rawAssigned = assignedTo !== undefined ? assignedTo : assigned_to;
+    const resolvedAssignedTo = resolveWorkerDbId(rawAssigned);
+
     const result = statements.insertAsset.run(
       tag,
       name,
       category || 'audio-visual',
       location || 'Sanctuary',
-      assignedTo ? Number(assignedTo) : null,
+      resolvedAssignedTo,
       status || 'good',
-      purchaseDate || new Date().toISOString().split('T')[0],
+      purchaseDate || purchase_date || new Date().toISOString().split('T')[0],
       Number(value || 0)
     );
     res.json({ ok: true, id: result.lastInsertRowid, assetTag: tag });
@@ -1046,12 +1049,15 @@ app.post('/api/assets', (req, res) => {
 
 app.put('/api/assets/:id', (req, res) => {
   try {
-    const { name, category, location, assignedTo, status, value } = req.body;
+    const { name, category, location, assignedTo, assigned_to, status, value } = req.body;
+    const rawAssigned = assignedTo !== undefined ? assignedTo : assigned_to;
+    const resolvedAssignedTo = resolveWorkerDbId(rawAssigned);
+
     statements.updateAsset.run(
       name,
       category,
       location,
-      assignedTo ? Number(assignedTo) : null,
+      resolvedAssignedTo,
       status,
       Number(value || 0),
       req.params.id

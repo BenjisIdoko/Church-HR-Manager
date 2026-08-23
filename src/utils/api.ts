@@ -4265,53 +4265,261 @@ export async function removeGroupMember(groupId: number, workerId: number | stri
   return { ok: true };
 }
 
+// LocalStorage helpers for Asset Management offline / standalone mode
+const DEFAULT_MOCK_ASSETS: Asset[] = [
+  {
+    id: 1,
+    asset_tag: "AST-1001",
+    name: "Behringer X32 Digital Sound Console",
+    category: "audio-visual",
+    location: "Main Sanctuary Sound Booth",
+    assigned_to: 1,
+    assigned_worker_name: "Austin Kyuinni",
+    status: "good",
+    purchase_date: "2024-01-15",
+    value: 3500,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    asset_tag: "AST-1002",
+    name: "Yamaha Montage 8 Synthesizer Keyboard",
+    category: "musical-instrument",
+    location: "Main Altar Stage",
+    assigned_to: 2,
+    assigned_worker_name: "Femi Tinuala",
+    status: "good",
+    purchase_date: "2024-03-20",
+    value: 4200,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 3,
+    asset_tag: "AST-1003",
+    name: "Shure QLXD24 Wireless Microphone Set (4x)",
+    category: "audio-visual",
+    location: "Media Storage Room",
+    assigned_to: 3,
+    assigned_worker_name: "Tijesunimi Olugbeminiyi",
+    status: "needs-repair",
+    purchase_date: "2023-11-10",
+    value: 2800,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 4,
+    asset_tag: "AST-1004",
+    name: "Toyota Coaster Executive Bus (30-Seater)",
+    category: "vehicle",
+    location: "Church Parking Lot",
+    assigned_to: 4,
+    assigned_worker_name: "Simon Brendan Sanda",
+    status: "good",
+    purchase_date: "2023-06-01",
+    value: 45000,
+    created_at: new Date().toISOString(),
+  },
+];
+
+const DEFAULT_MAINTENANCE_LOGS: Record<number, AssetMaintenance[]> = {
+  3: [
+    {
+      id: 1,
+      asset_id: 3,
+      service_date: "2024-05-12",
+      cost: 150,
+      performed_by: "SoundCraft Audio Repairs",
+      notes: "Replaced antenna connector on handheld mic #2 and recalibrated frequency channel.",
+    },
+  ],
+};
+
+function getStoredAssets(): Asset[] {
+  try {
+    const stored = localStorage.getItem("church_hr_assets");
+    if (stored !== null) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return DEFAULT_MOCK_ASSETS;
+}
+
+function saveStoredAssets(assets: Asset[]): void {
+  try {
+    localStorage.setItem("church_hr_assets", JSON.stringify(assets));
+  } catch {}
+}
+
+function getStoredAssetMaintenance(): Record<number, AssetMaintenance[]> {
+  try {
+    const stored = localStorage.getItem("church_hr_asset_maintenance");
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return DEFAULT_MAINTENANCE_LOGS;
+}
+
+function saveStoredAssetMaintenance(logsMap: Record<number, AssetMaintenance[]>): void {
+  try {
+    localStorage.setItem("church_hr_asset_maintenance", JSON.stringify(logsMap));
+  } catch {}
+}
+
 // Asset Management APIs
 export async function fetchAssets(): Promise<Asset[]> {
   try {
     const data = await apiRequest<Asset[]>("/api/assets");
-    return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
-  }
+    if (Array.isArray(data)) {
+      const stored = getStoredAssets();
+      const backendIds = new Set(data.map((a) => a.id));
+      const localOnly = stored.filter((a) => !backendIds.has(a.id));
+      const combined = [...data, ...localOnly];
+      saveStoredAssets(combined);
+      return combined;
+    }
+  } catch {}
+  return getStoredAssets();
 }
 
-export async function createAsset(asset: Partial<Asset>): Promise<{ ok: boolean; id: number }> {
-  return apiRequest<{ ok: boolean; id: number }>("/api/assets", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(asset),
-  });
+export async function createAsset(
+  asset: Partial<Asset> & { assignedTo?: any; assetTag?: string; purchaseDate?: string }
+): Promise<{ ok: boolean; id: number; assetTag?: string }> {
+  const tag = asset.asset_tag || asset.assetTag || `AST-${Date.now().toString().slice(-6)}`;
+  const payload = {
+    ...asset,
+    assetTag: tag,
+    asset_tag: tag,
+    assignedTo: asset.assigned_to ?? asset.assignedTo,
+    assigned_to: asset.assigned_to ?? asset.assignedTo,
+    purchaseDate: asset.purchase_date ?? asset.purchaseDate ?? new Date().toISOString().split("T")[0],
+    purchase_date: asset.purchase_date ?? asset.purchaseDate ?? new Date().toISOString().split("T")[0],
+  };
+
+  const assets = getStoredAssets();
+  const newId = Date.now();
+  const newAsset: Asset = {
+    id: newId,
+    asset_tag: tag,
+    name: asset.name || "New Asset",
+    category: asset.category || "audio-visual",
+    location: asset.location || "Main Sanctuary",
+    assigned_to: asset.assigned_to as any,
+    assigned_worker_name: asset.assigned_worker_name || "",
+    status: asset.status || "good",
+    purchase_date: payload.purchase_date,
+    value: Number(asset.value || 0),
+    created_at: new Date().toISOString(),
+  };
+
+  try {
+    const res = await apiRequest<{ ok: boolean; id: number; assetTag?: string }>("/api/assets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (res && res.ok) {
+      newAsset.id = res.id || newId;
+      newAsset.asset_tag = res.assetTag || tag;
+      saveStoredAssets([newAsset, ...assets.filter((a) => a.id !== newAsset.id)]);
+      return res;
+    }
+  } catch {}
+
+  assets.unshift(newAsset);
+  saveStoredAssets(assets);
+  return { ok: true, id: newId, assetTag: tag };
 }
 
-export async function updateAsset(id: number, asset: Partial<Asset>): Promise<{ ok: boolean }> {
-  return apiRequest<{ ok: boolean }>(`/api/assets/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(asset),
+export async function updateAsset(
+  id: number,
+  asset: Partial<Asset> & { assignedTo?: any }
+): Promise<{ ok: boolean }> {
+  const payload = {
+    ...asset,
+    assignedTo: asset.assigned_to ?? asset.assignedTo,
+    assigned_to: asset.assigned_to ?? asset.assignedTo,
+  };
+
+  const updatedAssets = getStoredAssets().map((a) => {
+    if (a.id === id) {
+      return {
+        ...a,
+        ...asset,
+        value: asset.value !== undefined ? Number(asset.value) : a.value,
+      };
+    }
+    return a;
   });
+  saveStoredAssets(updatedAssets);
+
+  try {
+    const res = await apiRequest<{ ok: boolean }>(`/api/assets/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (res && res.ok) {
+      return res;
+    }
+  } catch {}
+
+  return { ok: true };
 }
 
 export async function deleteAsset(id: number): Promise<{ ok: boolean }> {
-  return apiRequest<{ ok: boolean }>(`/api/assets/${id}`, {
-    method: "DELETE",
-  });
+  const updatedAssets = getStoredAssets().filter((a) => a.id !== id);
+  saveStoredAssets(updatedAssets);
+
+  try {
+    const res = await apiRequest<{ ok: boolean }>(`/api/assets/${id}`, {
+      method: "DELETE",
+    });
+    if (res && res.ok) {
+      return res;
+    }
+  } catch {}
+
+  return { ok: true };
 }
 
 export async function fetchAssetMaintenance(assetId: number): Promise<AssetMaintenance[]> {
   try {
     const data = await apiRequest<AssetMaintenance[]>(`/api/assets/${assetId}/maintenance`);
-    return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
-  }
+    if (Array.isArray(data)) {
+      return data;
+    }
+  } catch {}
+
+  const logsMap = getStoredAssetMaintenance();
+  return logsMap[assetId] || [];
 }
 
 export async function addAssetMaintenance(assetId: number, record: Partial<AssetMaintenance>): Promise<{ ok: boolean }> {
-  return apiRequest<{ ok: boolean }>(`/api/assets/${assetId}/maintenance`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(record),
-  });
+  const logsMap = getStoredAssetMaintenance();
+  const current = logsMap[assetId] || [];
+  const newRecord: AssetMaintenance = {
+    id: Date.now(),
+    asset_id: assetId,
+    service_date: record.service_date || new Date().toISOString().split("T")[0],
+    cost: Number(record.cost || 0),
+    performed_by: record.performed_by || "Technician",
+    notes: record.notes || "",
+  };
+  logsMap[assetId] = [newRecord, ...current];
+  saveStoredAssetMaintenance(logsMap);
+
+  try {
+    const res = await apiRequest<{ ok: boolean }>(`/api/assets/${assetId}/maintenance`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(record),
+    });
+    if (res && res.ok) {
+      return res;
+    }
+  } catch {}
+
+  return { ok: true };
 }
 
 // Discipleship LMS APIs

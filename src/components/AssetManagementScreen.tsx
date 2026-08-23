@@ -85,15 +85,24 @@ export function AssetManagementScreen({ workers }: AssetManagementScreenProps) {
       return;
     }
 
+    const selectedWorker = workers.find((w) => String(w.id) === String(assignedTo));
+    const assignedWorkerName = selectedWorker?.name;
+    const parsedAssignedTo = assignedTo
+      ? !isNaN(Number(assignedTo))
+        ? Number(assignedTo)
+        : (selectedWorker as any)?.dbId || assignedTo
+      : undefined;
+
     try {
       if (editingAsset) {
         await updateAsset(editingAsset.id, {
           name,
           category,
           location,
-          assigned_to: assignedTo ? Number(assignedTo) : undefined,
+          assigned_to: parsedAssignedTo as any,
+          assigned_worker_name: assignedWorkerName,
           status,
-          value: Number(value),
+          value: Number(value || 0),
         });
         toast.success("Asset updated successfully");
       } else {
@@ -101,14 +110,15 @@ export function AssetManagementScreen({ workers }: AssetManagementScreenProps) {
           name,
           category,
           location,
-          assigned_to: assignedTo ? Number(assignedTo) : undefined,
+          assigned_to: parsedAssignedTo as any,
+          assigned_worker_name: assignedWorkerName,
           status,
-          value: Number(value),
+          value: Number(value || 0),
         });
         toast.success("New asset created");
       }
       setIsModalOpen(false);
-      void loadAssets();
+      await loadAssets();
     } catch {
       toast.error("Failed to save asset");
     }
