@@ -119,8 +119,13 @@ export function isWithinGeofence(
     latitude: config.latitude,
     longitude: config.longitude,
   });
+
+  // Include GPS accuracy variance buffer (up to 300m for indoor Wi-Fi / cellular triangulation drift)
+  const accuracyBuffer = location.accuracy ? Math.min(location.accuracy, 300) : 150;
+  const effectiveThreshold = config.radiusMeters + accuracyBuffer;
+
   return {
-    isWithin: distance <= config.radiusMeters,
+    isWithin: distance <= effectiveThreshold,
     distance,
   };
 }

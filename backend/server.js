@@ -611,12 +611,13 @@ app.post('/api/clock-in', (req, res) => {
       { latitude: parsedLatitude, longitude: parsedLongitude },
       config.churchLocation,
     );
-    const isWithinGeofence = distanceFromChurch <= config.radiusMeters;
+    // Include an accuracy buffer of up to 350 meters for indoor Wi-Fi / cellular triangulation drift
+    const isWithinGeofence = distanceFromChurch <= (config.radiusMeters + 350);
 
     if (!isWithinGeofence) {
       return res.status(400).json({
         ok: false,
-        message: `You must be within ${Math.round(config.radiusMeters)} meters of the church to clock in`,
+        message: `You must be within range of the church to clock in (Distance: ${Math.round(distanceFromChurch)}m)`,
         distanceFromChurch,
       });
     }

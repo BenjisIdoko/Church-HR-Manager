@@ -114,7 +114,7 @@ export function ClockInManagement() {
 
     const radiusThreshold = Number(settings.geofence_radius_meters || 200);
     const dist = r.distance_from_church ?? r.distance ?? 0;
-    const isWithin = r.is_within_geofence !== undefined ? Boolean(r.is_within_geofence) : dist <= radiusThreshold;
+    const isWithin = r.is_within_geofence !== undefined ? Boolean(r.is_within_geofence) : dist <= (radiusThreshold + 300);
 
     const matchesGeofence =
       geofenceFilter === "all"
@@ -128,7 +128,7 @@ export function ClockInManagement() {
 
   const inRangeCount = filteredRecords.filter((r) => {
     const dist = r.distance_from_church ?? r.distance ?? 0;
-    return r.is_within_geofence !== undefined ? Boolean(r.is_within_geofence) : dist <= Number(settings.geofence_radius_meters || 200);
+    return r.is_within_geofence !== undefined ? Boolean(r.is_within_geofence) : dist <= (Number(settings.geofence_radius_meters || 200) + 300);
   }).length;
 
   const outOfRangeCount = filteredRecords.length - inRangeCount;
@@ -453,7 +453,7 @@ export function ClockInManagement() {
                         const dept = record.worker_dept || record.department || "General Ministry";
                         const dist = record.distance_from_church ?? record.distance ?? 0;
                         const radiusThreshold = Number(settings.geofence_radius_meters || 200);
-                        const isWithin = record.is_within_geofence !== undefined ? Boolean(record.is_within_geofence) : dist <= radiusThreshold;
+                        const isWithin = record.is_within_geofence !== undefined ? Boolean(record.is_within_geofence) : dist <= (radiusThreshold + 300);
                         const lat = record.latitude || Number(settings.church_latitude);
                         const lng = record.longitude || Number(settings.church_longitude);
 
