@@ -10,12 +10,14 @@ export interface Worker {
   profileImage?: string;
 }
 
+export type UserRole = "superadmin" | "manager" | "member";
+
 export interface User {
   id: string;
   name: string;
   email: string;
   password?: string;
-  role: "superadmin" | "manager" | "member";
+  role: UserRole;
   workerId?: string;
 }
 
@@ -120,6 +122,7 @@ export interface ServicePlan {
   title: string;
   date: string;
   service_type: string;
+  serviceType?: string;
   leader_id?: number;
   leader_name?: string;
   created_at?: string;
@@ -131,7 +134,9 @@ export interface ServiceItem {
   sequence: number;
   title: string;
   duration_minutes: number;
+  durationMinutes?: number;
   leader_name?: string;
+  leaderName?: string;
   notes?: string;
 }
 
@@ -141,9 +146,11 @@ export interface ServiceRoster {
   department: string;
   worker_id: number;
   worker_name?: string;
+  workerName?: string;
   worker_phone?: string;
   worker_email?: string;
   role_title: string;
+  roleTitle?: string;
   status: "confirmed" | "pending" | "declined";
 }
 
@@ -163,13 +170,16 @@ export interface ChurchEvent {
 export interface KioskCheckin {
   id: number;
   child_name: string;
+  childName?: string;
   parent_name: string;
+  parentName?: string;
   parent_phone: string;
+  parentPhone?: string;
   department: string;
   security_code: string;
+  securityCode?: string;
   checkin_time: string;
+  checkinTime?: string;
   checkout_time?: string;
   status: "checked-in" | "checked-out";
 }
-
-

@@ -16,6 +16,7 @@ import { Label } from "./ui/label";
 import { Checkbox } from "./ui/checkbox";
 import { Worker, User } from "../types/models";
 import { loginUser } from "../utils/api";
+import { MOCK_WORKERS } from "../utils/mockData";
 
 interface LoginFormProps {
   workers: Worker[];
@@ -84,18 +85,31 @@ export function LoginForm({ workers, onLogin }: LoginFormProps) {
   const handleWorkerLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setWorkerError("");
-    const input = workerInput.trim();
+    const normalizedInput = workerInput.replace(/\s+/g, " ").trim();
 
-    if (!input) {
+    if (!normalizedInput) {
       setWorkerError("Please enter your Worker ID or full name.");
       return;
     }
 
-    const matched = workers.find(
-      (w) =>
-        w.id.toUpperCase() === input.toUpperCase() ||
-        w.name.toLowerCase().includes(input.toLowerCase()),
-    );
+    const inputUpper = normalizedInput.toUpperCase();
+    const inputLower = normalizedInput.toLowerCase();
+
+    const candidateList = Array.isArray(workers) && workers.length > 0 ? workers : MOCK_WORKERS;
+
+    const matched = candidateList.find((w) => {
+      if (!w) return false;
+      const wId = String(w.id || "").toUpperCase();
+      const wExtId = String((w as any).external_id || (w as any).externalId || "").toUpperCase();
+      const wNameNorm = String(w.name || "").replace(/\s+/g, " ").trim().toLowerCase();
+
+      return (
+        wId === inputUpper ||
+        wExtId === inputUpper ||
+        wNameNorm.includes(inputLower) ||
+        inputLower.includes(wNameNorm)
+      );
+    });
 
     if (matched) {
       const user: User = {
@@ -486,9 +500,9 @@ export function LoginForm({ workers, onLogin }: LoginFormProps) {
               </div>
 
               <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                📢 Alternatively: <br />
-                • Click <strong>HOD Access</strong>, select <strong>Choir</strong>, pass matches <strong>hod</strong> to test HOD access.<br />
-                • Click <strong>System Admin</strong> and hit submit straight (blank pass authorized) to manage global systems.
+                📢 System Admin credentials: <br />
+                • Email: <strong>admin@church.com</strong> | Password: <strong>Admin@123</strong><br />
+                • Manager: <strong>manager@church.com</strong> | Password: <strong>Manager@123</strong>
               </p>
             </div>
           )}

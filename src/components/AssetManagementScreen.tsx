@@ -177,17 +177,26 @@ export function AssetManagementScreen({ workers }: AssetManagementScreenProps) {
     }
   };
 
-  const filteredAssets = assets.filter((a) => {
+  const safeAssets = Array.isArray(assets) ? assets : [];
+
+  const filteredAssets = safeAssets.filter((a) => {
+    if (!a) return false;
+    const nameStr = (a.name || "").toLowerCase();
+    const tagStr = (a.asset_tag || (a as any).assetTag || "").toLowerCase();
+    const locStr = (a.location || "").toLowerCase();
+    const workerStr = (a.assigned_worker_name || (a as any).assignedWorkerName || "").toLowerCase();
+    const query = searchQuery.toLowerCase().trim();
+
     const matchesSearch =
-      a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.asset_tag.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (a.assigned_worker_name && a.assigned_worker_name.toLowerCase().includes(searchQuery.toLowerCase()));
+      nameStr.includes(query) ||
+      tagStr.includes(query) ||
+      locStr.includes(query) ||
+      workerStr.includes(query);
     const matchesCat = categoryFilter === "all" || a.category === categoryFilter;
     return matchesSearch && matchesCat;
   });
 
-  const totalValue = assets.reduce((sum, a) => sum + (a.value || 0), 0);
+  const totalValue = safeAssets.reduce((sum, a) => sum + (a?.value || 0), 0);
 
   return (
     <div className="space-y-6">

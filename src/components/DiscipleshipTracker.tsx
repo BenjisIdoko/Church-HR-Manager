@@ -54,9 +54,26 @@ export function DiscipleshipTracker({ workers }: DiscipleshipTrackerProps) {
       return;
     }
 
+    // Resolve worker ID (whether numeric ID or external_id string e.g. "W001")
+    let targetWorkerDbId: number | null = Number(enrollWorkerId);
+    if (isNaN(targetWorkerDbId)) {
+      const found = workers.find(
+        (w) => w.id === enrollWorkerId || (w as any).external_id === enrollWorkerId
+      );
+      if (found) {
+        // If DB worker ID exists on found object
+        targetWorkerDbId = Number((found as any).db_id || (found as any).dbId || found.id);
+      }
+    }
+
+    if (!targetWorkerDbId || isNaN(targetWorkerDbId)) {
+      toast.error("Invalid worker selection. Please re-select a worker.");
+      return;
+    }
+
     try {
       await updateMemberCourseProgress(
-        Number(enrollWorkerId),
+        targetWorkerDbId,
         Number(enrollCourseId),
         enrollStatus,
         enrollStatus === "completed" ? new Date().toISOString().split("T")[0] : undefined
@@ -89,10 +106,14 @@ export function DiscipleshipTracker({ workers }: DiscipleshipTrackerProps) {
   const inProgressCount = progressList.filter((p) => p.status === "in-progress" || p.status === "enrolled").length;
 
   const filteredProgress = progressList.filter((p) => {
+    const workerName = p.worker_name || (p as any).workerName || "";
+    const courseTitle = p.course_title || (p as any).courseTitle || "";
+    const courseIdVal = p.course_id ?? (p as any).courseId;
+
     const matchesSearch =
-      (p.worker_name && p.worker_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (p.course_title && p.course_title.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCourse = selectedCourseFilter === "all" || String(p.course_id) === selectedCourseFilter;
+      (workerName && workerName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (courseTitle && courseTitle.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesCourse = selectedCourseFilter === "all" || String(courseIdVal) === selectedCourseFilter;
     return matchesSearch && matchesCourse;
   });
 
@@ -114,7 +135,9 @@ export function DiscipleshipTracker({ workers }: DiscipleshipTrackerProps) {
       {/* Course Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {courses.map((course) => {
-          const completedInCourse = progressList.filter((p) => p.course_id === course.id && p.status === "completed").length;
+          const completedInCourse = progressList.filter(
+            (p) => (p.course_id === course.id || (p as any).courseId === course.id) && p.status === "completed"
+          ).length;
           return (
             <Card key={course.id} className="border-slate-200 shadow-sm bg-white">
               <CardHeader className="p-4 pb-2">

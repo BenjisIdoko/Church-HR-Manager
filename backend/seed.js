@@ -1,4 +1,5 @@
 const { db, statements } = require('./database');
+const bcrypt = require('bcryptjs');
 
 // Seed initial data
 const seedData = async () => {
@@ -16,8 +17,39 @@ const seedData = async () => {
       DELETE FROM attendance;
       DELETE FROM absences;
       DELETE FROM workers;
-      DELETE FROM sqlite_sequence WHERE name IN ('workers', 'attendance', 'absences', 'clock_in_records');
+      DELETE FROM users;
+      DELETE FROM sqlite_sequence WHERE name IN ('workers', 'attendance', 'absences', 'clock_in_records', 'users');
     `);
+
+    // Seed default authentication users with hashed passwords
+    const seedUsers = [
+      {
+        name: 'Super Admin',
+        email: 'admin@church.com',
+        password: 'Admin@123',
+        role: 'superadmin',
+        workerId: 'W000',
+      },
+      {
+        name: 'Manager User',
+        email: 'manager@church.com',
+        password: 'Manager@123',
+        role: 'manager',
+        workerId: null,
+      },
+      {
+        name: 'Alice Johnson',
+        email: 'alice@church.org',
+        password: 'Member@123',
+        role: 'member',
+        workerId: 'W001',
+      },
+    ];
+
+    for (const user of seedUsers) {
+      const hash = bcrypt.hashSync(user.password, 10);
+      statements.insertUser.run(user.name, user.email, hash, user.role, user.workerId);
+    }
 
     const demoSettings = {
       clock_in_portal_enabled: 'true',
@@ -26,6 +58,7 @@ const seedData = async () => {
       church_latitude: '9.0765',
       church_longitude: '7.3986',
       geofence_radius_meters: '200',
+      geofence_tolerance_meters: '50',
       device_import_enabled: 'true',
     };
 
@@ -1234,9 +1267,18 @@ const seedData = async () => {
   }
 ];
 
+    // Deduplicate sample workers by externalId
+    const uniqueWorkersMap = new Map();
+    for (const worker of workers) {
+      if (worker.externalId && !uniqueWorkersMap.has(worker.externalId)) {
+        uniqueWorkersMap.set(worker.externalId, worker);
+      }
+    }
+    const uniqueWorkers = Array.from(uniqueWorkersMap.values());
+
     // Insert sample workers and collect their IDs
     const insertedWorkers = [];
-    for (const worker of workers) {
+    for (const worker of uniqueWorkers) {
       const result = statements.insertWorker.run(
         worker.externalId,
         worker.name,

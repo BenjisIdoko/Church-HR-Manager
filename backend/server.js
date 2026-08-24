@@ -2,43 +2,190 @@ const express = require('express')
 const cors = require('cors')
 const path = require('path')
 const fs = require('fs')
+const crypto = require('crypto')
 const multer = require('multer')
+const bcrypt = require('bcryptjs')
+const jwt = require('jsonwebtoken')
+const cookieParser = require('cookie-parser')
+const helmet = require('helmet')
+const rateLimit = require('express-rate-limit')
 const { statements } = require('./database')
 
 const app = express()
+const JWT_SECRET = process.env.JWT_SECRET || 'church-hr-dev-secret-key-change-in-prod'
+
 const DEFAULT_CHURCH_LOCATION = {
   latitude: 9.0765,
   longitude: 7.3986,
 }
 const DEFAULT_GEOFENCE_RADIUS_METERS = 200
+const DEFAULT_GEOFENCE_TOLERANCE_METERS = 50
 const MAX_GEOFENCE_RADIUS_METERS = 10000
-const demoUsers = [
-  {
-    id: 'U000',
-    name: 'Super Admin',
-    email: 'admin@church.com',
-    password: 'Admin@123',
-    role: 'superadmin',
-  },
-  {
-    id: 'U001',
-    name: 'Alice Johnson',
-    email: 'alice@church.org',
-    password: 'Member@123',
-    role: 'member',
-    workerId: 'W001',
-  },
-  {
-    id: 'U002',
-    name: 'Manager User',
-    email: 'manager@church.com',
-    password: 'Manager@123',
-    role: 'manager',
-  },
-]
 
-app.use(cors())
+// Helmet Security Headers
+app.use(helmet({
+  contentSecurityPolicy: false,
+}))
+
+// Restricted CORS Configuration
+const allowedOriginsEnv = process.env.ALLOWED_ORIGINS
+const defaultAllowedOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+]
+const allowedOrigins = allowedOriginsEnv
+  ? allowedOriginsEnv.split(',').map((o) => o.trim()).filter(Boolean)
+  : defaultAllowedOrigins
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true)
+    }
+    return callback(new Error('CORS policy: Origin not allowed'))
+  },
+  credentials: true,
+}))
+
 app.use(express.json())
+app.use(cookieParser())
+
+// Normalize request body keys from snake_case to camelCase
+function snakeToCamel(str) {
+  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())
+}
+
+function normalizeObjectKeys(obj) {
+  if (obj === null || typeof obj !== 'object' || Array.isArray(obj) || obj instanceof Date) {
+    return obj
+  }
+
+  const normalized = {}
+  for (const [key, value] of Object.entries(obj)) {
+    const camelKey = snakeToCamel(key)
+    normalized[camelKey] = typeof value === 'object' && value !== null && !Array.isArray(value)
+      ? normalizeObjectKeys(value)
+      : value
+  }
+  return normalized
+}
+
+function normalizeRequestBody(req, res, next) {
+  if (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) {
+    req.body = normalizeObjectKeys(req.body)
+  }
+  next()
+}
+
+app.use(normalizeRequestBody)
+
+// Rate Limiting
+const loginRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, message: 'Too many login attempts. Please try again in 15 minutes.' },
+})
+
+const apiRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, message: 'Too many requests. Please slow down.' },
+})
+
+app.use('/api', (req, res, next) => {
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method) && req.path !== '/login') {
+    return apiRateLimiter(req, res, next)
+  }
+  next()
+})
+
+// CSRF Token Helpers & Verification Middleware
+function generateCsrfToken() {
+  return crypto.randomBytes(32).toString('hex')
+}
+
+function setCsrfToken(res, req) {
+  const token = req?.cookies?.csrf_token || generateCsrfToken()
+  res.cookie('csrf_token', token, {
+    httpOnly: false,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000,
+  })
+  res.setHeader('X-CSRF-Token', token)
+  return token
+}
+
+function verifyCsrfToken(req, res, next) {
+  const exemptPaths = ['/api/login', '/api/logout', '/api/clock-in', '/api/kiosk/checkin']
+  if (exemptPaths.includes(req.path) || req.path.startsWith('/api/kiosk/checkout/')) {
+    return next()
+  }
+
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
+    const clientToken = req.headers['x-csrf-token'] || req.headers['csrf-token'] || (req.body && req.body._csrf)
+    const serverCookieToken = req.cookies?.csrf_token
+
+    if (!clientToken || (serverCookieToken && clientToken !== serverCookieToken)) {
+      return res.status(403).json({ ok: false, message: 'Invalid or missing CSRF token' })
+    }
+  }
+  next()
+}
+
+app.use(verifyCsrfToken)
+
+function authenticateToken(req, res, next) {
+  const token = req.cookies?.token || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
+
+  if (!token) {
+    return res.status(401).json({ ok: false, message: 'Authentication required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ ok: false, message: 'Invalid or expired session' });
+  }
+}
+
+const ROLE_HIERARCHY = {
+  superadmin: 3,
+  manager: 2,
+  member: 1,
+};
+
+function requireRole(allowedRoles) {
+  const roles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
+
+  return (req, res, next) => {
+    if (!req.user || !req.user.role) {
+      return res.status(401).json({ ok: false, message: 'Authentication required' });
+    }
+
+    const userRole = String(req.user.role).toLowerCase();
+    const hasRole = roles.some((r) => {
+      if (r === userRole) return true;
+      const userLevel = ROLE_HIERARCHY[userRole] || 0;
+      const requiredLevel = ROLE_HIERARCHY[r] || 99;
+      return userLevel >= requiredLevel;
+    });
+
+    if (!hasRole) {
+      return res.status(403).json({ ok: false, message: 'Forbidden: Insufficient privileges' });
+    }
+
+    next();
+  };
+}
 
 // Serve static files from uploads directory
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -280,6 +427,13 @@ function validateClockInSetting(key, value) {
       : `Geofence radius must be greater than 0 and no more than ${MAX_GEOFENCE_RADIUS_METERS} meters`;
   }
 
+  if (key === 'geofence_tolerance_meters') {
+    const num = Number(value);
+    return Number.isFinite(num) && num >= 0 && num <= 1000
+      ? null
+      : 'Geofence tolerance buffer must be a non-negative number up to 1000 meters';
+  }
+
   if (value.length > 500) {
     return `${key} is too long`;
   }
@@ -306,6 +460,7 @@ function getClockInConfig() {
   const latitude = toNumber(getSettingValue('church_latitude', DEFAULT_CHURCH_LOCATION.latitude), DEFAULT_CHURCH_LOCATION.latitude);
   const longitude = toNumber(getSettingValue('church_longitude', DEFAULT_CHURCH_LOCATION.longitude), DEFAULT_CHURCH_LOCATION.longitude);
   const radiusMeters = toNumber(getSettingValue('geofence_radius_meters', DEFAULT_GEOFENCE_RADIUS_METERS), DEFAULT_GEOFENCE_RADIUS_METERS);
+  const toleranceMeters = toNumber(getSettingValue('geofence_tolerance_meters', DEFAULT_GEOFENCE_TOLERANCE_METERS), DEFAULT_GEOFENCE_TOLERANCE_METERS);
 
   return {
     enabled: getSettingValue('clock_in_portal_enabled', 'true') === 'true',
@@ -314,6 +469,7 @@ function getClockInConfig() {
       longitude: isValidLongitude(longitude) ? longitude : DEFAULT_CHURCH_LOCATION.longitude,
     },
     radiusMeters: isValidRadius(radiusMeters) ? radiusMeters : DEFAULT_GEOFENCE_RADIUS_METERS,
+    toleranceMeters: Number.isFinite(toleranceMeters) && toleranceMeters >= 0 && toleranceMeters <= 1000 ? toleranceMeters : DEFAULT_GEOFENCE_TOLERANCE_METERS,
   };
 }
 
@@ -350,49 +506,72 @@ function importAttendance(records) {
   }
 }
 
-// Auth (very simple prototype)
-app.post('/api/login', (req, res) => {
-  const { identifier, username, email, password } = req.body || {}
-  
-  // Support both new 'identifier' param and legacy 'username'/'email' params
-  const loginIdentifier = String(identifier || username || email || '').trim().toLowerCase()
-  
+// Authentication Endpoints
+app.post('/api/login', loginRateLimiter, (req, res) => {
+  const { identifier, username, email, password } = req.body || {};
+  const loginIdentifier = String(identifier || username || email || '').trim().toLowerCase();
+
   if (!loginIdentifier) {
-    return res.status(400).json({ ok: false, message: 'Username or email is required' })
+    return res.status(400).json({ ok: false, message: 'Username or email is required' });
+  }
+  if (!password) {
+    return res.status(400).json({ ok: false, message: 'Password is required' });
   }
 
-  const matchedUser = demoUsers.find((user) => {
-    const normalizedEmail = user.email.toLowerCase();
-    const normalizedName = user.name.toLowerCase();
-    const normalizedUsername = normalizedEmail.split("@")[0];
-    const nameParts = normalizedName.split(" ");
+  const user = statements.getUserByEmail.get(loginIdentifier);
+  if (!user) {
+    return res.status(401).json({ ok: false, message: 'Invalid credentials' });
+  }
 
-    const matchesIdentifier =
-      normalizedEmail === loginIdentifier ||
-      normalizedName === loginIdentifier ||
-      normalizedUsername === loginIdentifier ||
-      nameParts.includes(loginIdentifier) ||
-      loginIdentifier === "admin" ||
-      loginIdentifier === "superadmin";
+  const isPasswordValid = bcrypt.compareSync(password, user.password_hash);
+  if (!isPasswordValid) {
+    return res.status(401).json({ ok: false, message: 'Invalid credentials' });
+  }
 
-    const matchesPassword =
-      user.password === password ||
-      !password ||
-      password === "Admin@123" ||
-      password === "admin";
+  const safeUser = {
+    id: String(user.id),
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    workerId: user.worker_id || undefined,
+  };
 
-    return matchesIdentifier && matchesPassword;
+  const token = jwt.sign(safeUser, JWT_SECRET, { expiresIn: '24h' });
+
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 24 * 60 * 60 * 1000,
   });
 
-  if (matchedUser) {
-    const { password: _password, ...safeUser } = matchedUser;
-    return res.json({ ok: true, user: safeUser });
+  const csrfToken = setCsrfToken(res, req);
+  return res.json({ ok: true, user: safeUser, csrfToken });
+});
+
+app.get('/api/me', authenticateToken, (req, res) => {
+  const dbUser = statements.getUserById.get(req.user.id);
+  if (!dbUser) {
+    return res.status(401).json({ ok: false, message: 'User not found' });
   }
+  const safeUser = {
+    id: String(dbUser.id),
+    name: dbUser.name,
+    email: dbUser.email,
+    role: dbUser.role,
+    workerId: dbUser.worker_id || undefined,
+  };
+  const csrfToken = setCsrfToken(res, req);
+  res.json({ ok: true, user: safeUser, csrfToken });
+});
 
-  res.status(401).json({ ok: false, message: 'Invalid credentials' })
-})
+app.post('/api/logout', (req, res) => {
+  res.clearCookie('token');
+  res.clearCookie('csrf_token');
+  res.json({ ok: true, message: 'Logged out successfully' });
+});
 
-app.get('/api/kpis', (req, res) => {
+app.get('/api/kpis', authenticateToken, requireRole('member'), (req, res) => {
   try {
     updateKPIs(); // Update KPIs before returning
     const kpis = statements.getKPIs.get();
@@ -408,7 +587,7 @@ app.get('/api/kpis', (req, res) => {
   }
 })
 
-app.get('/api/workers', (req, res) => {
+app.get('/api/workers', authenticateToken, requireRole('member'), (req, res) => {
   try {
     const workers = statements.getAllWorkers.all();
     res.json(workers.map(formatWorker));
@@ -418,7 +597,7 @@ app.get('/api/workers', (req, res) => {
   }
 })
 
-app.put('/api/workers/:workerId', (req, res) => {
+app.put('/api/workers/:workerId', authenticateToken, requireRole('manager'), (req, res) => {
   const { workerId } = req.params;
   const { name, email, phone, department, role, status, profileImage } = req.body || {};
 
@@ -451,7 +630,7 @@ app.put('/api/workers/:workerId', (req, res) => {
   }
 })
 
-app.put('/api/departments/rename', (req, res) => {
+app.put('/api/departments/rename', authenticateToken, requireRole('superadmin'), (req, res) => {
   const { oldDepartment, newDepartment } = req.body || {};
 
   if (!oldDepartment || !newDepartment) {
@@ -469,7 +648,7 @@ app.put('/api/departments/rename', (req, res) => {
   }
 })
 
-app.post('/api/upload-profile-image', upload.single('image'), (req, res) => {
+app.post('/api/upload-profile-image', authenticateToken, requireRole('member'), upload.single('image'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ ok: false, message: 'No image file provided' });
   }
@@ -478,7 +657,7 @@ app.post('/api/upload-profile-image', upload.single('image'), (req, res) => {
   res.json({ ok: true, imageUrl });
 })
 
-app.get('/api/attendance', (req, res) => {
+app.get('/api/attendance', authenticateToken, requireRole('member'), (req, res) => {
   try {
     const { date, startDate, endDate, department, workerId } = req.query;
     const attendance = collapseAttendanceRecords(statements.getAllAttendance.all().map(formatAttendance));
@@ -500,7 +679,7 @@ app.get('/api/attendance', (req, res) => {
 })
 
 // Import endpoint that persists validated attendance or worker records into SQLite
-app.post('/api/import', (req, res) => {
+app.post('/api/import', authenticateToken, requireRole('manager'), (req, res) => {
   const { type, records } = req.body || {};
 
   if (!type || !Array.isArray(records)) {
@@ -536,7 +715,7 @@ app.post('/api/import', (req, res) => {
 })
 
 // Absence notification endpoint
-app.post('/api/absence', (req, res) => {
+app.post('/api/absence', authenticateToken, requireRole('member'), (req, res) => {
   const { name, department, reason, otherReason, dateFrom, dateTo, message } = req.body || {};
 
   if (!name || !department || !reason || !dateFrom) {
@@ -571,7 +750,7 @@ app.post('/api/absence', (req, res) => {
 })
 
 // Get all absences
-app.get('/api/absences', (req, res) => {
+app.get('/api/absences', authenticateToken, requireRole('manager'), (req, res) => {
   try {
     const absences = statements.getAllAbsences.all();
     res.json(absences);
@@ -611,14 +790,15 @@ app.post('/api/clock-in', (req, res) => {
       { latitude: parsedLatitude, longitude: parsedLongitude },
       config.churchLocation,
     );
-    // Include an accuracy buffer of up to 350 meters for indoor Wi-Fi / cellular triangulation drift
-    const isWithinGeofence = distanceFromChurch <= (config.radiusMeters + 350);
+    const maxAllowedDistance = config.radiusMeters + config.toleranceMeters;
+    const isWithinGeofence = distanceFromChurch <= maxAllowedDistance;
 
     if (!isWithinGeofence) {
       return res.status(400).json({
         ok: false,
-        message: `You must be within range of the church to clock in (Distance: ${Math.round(distanceFromChurch)}m)`,
+        message: `You must be within range of the church to clock in (Distance: ${Math.round(distanceFromChurch)}m, Allowed: ${config.radiusMeters}m + ${config.toleranceMeters}m GPS tolerance)`,
         distanceFromChurch,
+        maxAllowedDistance,
       });
     }
 
@@ -663,7 +843,7 @@ app.post('/api/clock-in', (req, res) => {
 });
 
 // Get clock-in records for a specific date
-app.get('/api/clock-in/date/:date', (req, res) => {
+app.get('/api/clock-in/date/:date', authenticateToken, requireRole('manager'), (req, res) => {
   const { date } = req.params;
 
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -680,7 +860,7 @@ app.get('/api/clock-in/date/:date', (req, res) => {
 });
 
 // Get worker's today clock-in status
-app.get('/api/clock-in/status/:workerId', (req, res) => {
+app.get('/api/clock-in/status/:workerId', authenticateToken, requireRole('member'), (req, res) => {
   const { workerId } = req.params;
 
   try {
@@ -706,7 +886,7 @@ app.get('/api/clock-in/status/:workerId', (req, res) => {
   }
 });
 
-app.get('/api/clock-in/settings', (req, res) => {
+app.get('/api/clock-in/settings', authenticateToken, requireRole('member'), (req, res) => {
   try {
     const settings = getAllSettingsObject();
     res.json({ ok: true, settings });
@@ -716,7 +896,7 @@ app.get('/api/clock-in/settings', (req, res) => {
   }
 });
 
-app.put('/api/clock-in/settings', (req, res) => {
+app.put('/api/clock-in/settings', authenticateToken, requireRole('superadmin'), (req, res) => {
   const allowedKeys = [
     'clock_in_portal_enabled',
     'clock_in_portal_name',
@@ -724,6 +904,7 @@ app.put('/api/clock-in/settings', (req, res) => {
     'church_latitude',
     'church_longitude',
     'geofence_radius_meters',
+    'geofence_tolerance_meters',
     'device_import_enabled',
   ];
 
@@ -755,7 +936,7 @@ app.put('/api/clock-in/settings', (req, res) => {
 });
 
 // Import clock-in data from traditional device (CSV format)
-app.post('/api/clock-in/import-device', (req, res) => {
+app.post('/api/clock-in/import-device', authenticateToken, requireRole('superadmin'), (req, res) => {
   const { records } = req.body || {};
 
   if (!Array.isArray(records) || records.length === 0) {
@@ -808,7 +989,7 @@ app.post('/api/clock-in/import-device', (req, res) => {
 });
 
 // Simple search and filter endpoints
-app.get('/api/workers/search', (req, res) => {
+app.get('/api/workers/search', authenticateToken, requireRole('member'), (req, res) => {
   try {
     const q = (req.query.q || '').toLowerCase()
     const allWorkers = statements.getAllWorkers.all();
@@ -825,7 +1006,7 @@ app.get('/api/workers/search', (req, res) => {
 })
 
 // Visitor & Follow-Up Endpoints
-app.get('/api/visitors', (req, res) => {
+app.get('/api/visitors', authenticateToken, requireRole('manager'), (req, res) => {
   try {
     const visitors = statements.getAllVisitors.all();
     res.json(visitors);
@@ -835,7 +1016,7 @@ app.get('/api/visitors', (req, res) => {
   }
 });
 
-app.post('/api/visitors', (req, res) => {
+app.post('/api/visitors', authenticateToken, requireRole('manager'), (req, res) => {
   try {
     const { name, email, phone, firstVisitDate, assignedTo, status, notes } = req.body;
     if (!name || !phone) {
@@ -857,7 +1038,7 @@ app.post('/api/visitors', (req, res) => {
   }
 });
 
-app.put('/api/visitors/:id', (req, res) => {
+app.put('/api/visitors/:id', authenticateToken, requireRole('manager'), (req, res) => {
   try {
     const { status, assignedTo, notes } = req.body;
     statements.updateVisitorStatus.run(
@@ -873,7 +1054,7 @@ app.put('/api/visitors/:id', (req, res) => {
   }
 });
 
-app.delete('/api/visitors/:id', (req, res) => {
+app.delete('/api/visitors/:id', authenticateToken, requireRole('manager'), (req, res) => {
   try {
     statements.deleteVisitor.run(req.params.id);
     res.json({ ok: true });
@@ -883,7 +1064,7 @@ app.delete('/api/visitors/:id', (req, res) => {
   }
 });
 
-app.get('/api/visitors/:id/followups', (req, res) => {
+app.get('/api/visitors/:id/followups', authenticateToken, requireRole('manager'), (req, res) => {
   try {
     const followups = statements.getVisitorFollowups.all(req.params.id);
     res.json(followups);
@@ -893,7 +1074,7 @@ app.get('/api/visitors/:id/followups', (req, res) => {
   }
 });
 
-app.post('/api/visitors/:id/followups', (req, res) => {
+app.post('/api/visitors/:id/followups', authenticateToken, requireRole('manager'), (req, res) => {
   try {
     const { callerId, date, medium, feedback } = req.body;
     statements.insertVisitorFollowup.run(
@@ -911,7 +1092,7 @@ app.post('/api/visitors/:id/followups', (req, res) => {
 });
 
 // Cell Group Endpoints
-app.get('/api/groups', (req, res) => {
+app.get('/api/groups', authenticateToken, requireRole('member'), (req, res) => {
   try {
     const groups = statements.getAllCellGroups.all();
     res.json(groups);
@@ -921,18 +1102,16 @@ app.get('/api/groups', (req, res) => {
   }
 });
 
-app.post('/api/groups', (req, res) => {
+app.post('/api/groups', authenticateToken, requireRole('manager'), (req, res) => {
   try {
-    const { name, type, leaderId, leader_id, meetingDay, meeting_day, location } = req.body;
-    const rawLeader = leaderId !== undefined ? leaderId : leader_id;
-    const rawMeetingDay = meetingDay !== undefined ? meetingDay : meeting_day;
-    const resolvedLeaderId = resolveWorkerDbId(rawLeader);
+    const { name, type, leaderId, meetingDay, location } = req.body || {};
+    const resolvedLeaderId = resolveWorkerDbId(leaderId);
 
     const result = statements.insertCellGroup.run(
       name,
       type || 'cell',
       resolvedLeaderId,
-      rawMeetingDay || 'Wednesday',
+      meetingDay || 'Wednesday',
       location || 'Church Grounds'
     );
     res.json({ ok: true, id: result.lastInsertRowid });
@@ -942,18 +1121,16 @@ app.post('/api/groups', (req, res) => {
   }
 });
 
-app.put('/api/groups/:id', (req, res) => {
+app.put('/api/groups/:id', authenticateToken, requireRole('manager'), (req, res) => {
   try {
-    const { name, type, leaderId, leader_id, meetingDay, meeting_day, location } = req.body;
-    const rawLeader = leaderId !== undefined ? leaderId : leader_id;
-    const rawMeetingDay = meetingDay !== undefined ? meetingDay : meeting_day;
-    const resolvedLeaderId = resolveWorkerDbId(rawLeader);
+    const { name, type, leaderId, meetingDay, location } = req.body || {};
+    const resolvedLeaderId = resolveWorkerDbId(leaderId);
 
     statements.updateCellGroup.run(
       name,
       type || 'cell',
       resolvedLeaderId,
-      rawMeetingDay || 'Wednesday',
+      meetingDay || 'Wednesday',
       location || 'Church Grounds',
       req.params.id
     );
@@ -964,7 +1141,7 @@ app.put('/api/groups/:id', (req, res) => {
   }
 });
 
-app.delete('/api/groups/:id', (req, res) => {
+app.delete('/api/groups/:id', authenticateToken, requireRole('manager'), (req, res) => {
   try {
     statements.deleteCellGroup.run(req.params.id);
     res.json({ ok: true });
@@ -974,7 +1151,7 @@ app.delete('/api/groups/:id', (req, res) => {
   }
 });
 
-app.get('/api/groups/:id/members', (req, res) => {
+app.get('/api/groups/:id/members', authenticateToken, requireRole('member'), (req, res) => {
   try {
     const members = statements.getGroupMembers.all(req.params.id);
     res.json(members);
@@ -984,11 +1161,10 @@ app.get('/api/groups/:id/members', (req, res) => {
   }
 });
 
-app.post('/api/groups/:id/members', (req, res) => {
+app.post('/api/groups/:id/members', authenticateToken, requireRole('manager'), (req, res) => {
   try {
-    const { workerId, worker_id, role } = req.body;
-    const rawWorker = workerId !== undefined ? workerId : worker_id;
-    const resolvedWorkerId = resolveWorkerDbId(rawWorker);
+    const { workerId, role } = req.body || {};
+    const resolvedWorkerId = resolveWorkerDbId(workerId);
 
     if (!resolvedWorkerId) {
       return res.status(400).json({ error: 'Invalid or missing worker ID' });
@@ -1002,7 +1178,7 @@ app.post('/api/groups/:id/members', (req, res) => {
   }
 });
 
-app.delete('/api/groups/:id/members/:workerId', (req, res) => {
+app.delete('/api/groups/:id/members/:workerId', authenticateToken, requireRole('manager'), (req, res) => {
   try {
     const resolvedWorkerId = resolveWorkerDbId(req.params.workerId) || req.params.workerId;
     statements.removeGroupMember.run(req.params.id, resolvedWorkerId);
@@ -1014,7 +1190,7 @@ app.delete('/api/groups/:id/members/:workerId', (req, res) => {
 });
 
 // Asset Management Endpoints
-app.get('/api/assets', (req, res) => {
+app.get('/api/assets', authenticateToken, requireRole('manager'), (req, res) => {
   try {
     const assets = statements.getAllAssets.all();
     res.json(assets);
@@ -1024,12 +1200,11 @@ app.get('/api/assets', (req, res) => {
   }
 });
 
-app.post('/api/assets', (req, res) => {
+app.post('/api/assets', authenticateToken, requireRole('manager'), (req, res) => {
   try {
-    const { assetTag, asset_tag, name, category, location, assignedTo, assigned_to, status, purchaseDate, purchase_date, value } = req.body;
-    const tag = assetTag || asset_tag || `AST-${Date.now().toString().slice(-6)}`;
-    const rawAssigned = assignedTo !== undefined ? assignedTo : assigned_to;
-    const resolvedAssignedTo = resolveWorkerDbId(rawAssigned);
+    const { assetTag, name, category, location, assignedTo, status, purchaseDate, value } = req.body || {};
+    const tag = assetTag || `AST-${Date.now().toString().slice(-6)}`;
+    const resolvedAssignedTo = resolveWorkerDbId(assignedTo);
 
     const result = statements.insertAsset.run(
       tag,
@@ -1038,7 +1213,7 @@ app.post('/api/assets', (req, res) => {
       location || 'Sanctuary',
       resolvedAssignedTo,
       status || 'good',
-      purchaseDate || purchase_date || new Date().toISOString().split('T')[0],
+      purchaseDate || new Date().toISOString().split('T')[0],
       Number(value || 0)
     );
     res.json({ ok: true, id: result.lastInsertRowid, assetTag: tag });
@@ -1048,11 +1223,10 @@ app.post('/api/assets', (req, res) => {
   }
 });
 
-app.put('/api/assets/:id', (req, res) => {
+app.put('/api/assets/:id', authenticateToken, requireRole('manager'), (req, res) => {
   try {
-    const { name, category, location, assignedTo, assigned_to, status, value } = req.body;
-    const rawAssigned = assignedTo !== undefined ? assignedTo : assigned_to;
-    const resolvedAssignedTo = resolveWorkerDbId(rawAssigned);
+    const { name, category, location, assignedTo, status, value } = req.body || {};
+    const resolvedAssignedTo = resolveWorkerDbId(assignedTo);
 
     statements.updateAsset.run(
       name,
@@ -1070,7 +1244,7 @@ app.put('/api/assets/:id', (req, res) => {
   }
 });
 
-app.delete('/api/assets/:id', (req, res) => {
+app.delete('/api/assets/:id', authenticateToken, requireRole('superadmin'), (req, res) => {
   try {
     statements.deleteAsset.run(req.params.id);
     res.json({ ok: true });
@@ -1080,7 +1254,7 @@ app.delete('/api/assets/:id', (req, res) => {
   }
 });
 
-app.get('/api/assets/:id/maintenance', (req, res) => {
+app.get('/api/assets/:id/maintenance', authenticateToken, requireRole('manager'), (req, res) => {
   try {
     const records = statements.getAssetMaintenance.all(req.params.id);
     res.json(records);
@@ -1090,7 +1264,7 @@ app.get('/api/assets/:id/maintenance', (req, res) => {
   }
 });
 
-app.post('/api/assets/:id/maintenance', (req, res) => {
+app.post('/api/assets/:id/maintenance', authenticateToken, requireRole('manager'), (req, res) => {
   try {
     const { serviceDate, cost, performedBy, notes } = req.body;
     statements.insertAssetMaintenance.run(
@@ -1108,7 +1282,7 @@ app.post('/api/assets/:id/maintenance', (req, res) => {
 });
 
 // Discipleship LMS Endpoints
-app.get('/api/discipleship/courses', (req, res) => {
+app.get('/api/discipleship/courses', authenticateToken, requireRole('member'), (req, res) => {
   try {
     const courses = statements.getAllDiscipleshipCourses.all();
     res.json(courses);
@@ -1118,7 +1292,7 @@ app.get('/api/discipleship/courses', (req, res) => {
   }
 });
 
-app.get('/api/discipleship/progress', (req, res) => {
+app.get('/api/discipleship/progress', authenticateToken, requireRole('member'), (req, res) => {
   try {
     const progress = statements.getAllMemberCourses.all();
     res.json(progress);
@@ -1128,7 +1302,7 @@ app.get('/api/discipleship/progress', (req, res) => {
   }
 });
 
-app.post('/api/discipleship/progress', (req, res) => {
+app.post('/api/discipleship/progress', authenticateToken, requireRole('member'), (req, res) => {
   try {
     const { workerId, courseId, status, completionDate } = req.body;
     statements.upsertMemberCourse.run(
@@ -1145,7 +1319,7 @@ app.post('/api/discipleship/progress', (req, res) => {
 });
 
 // Service Plans Endpoints (Planning Center Services)
-app.get('/api/service-plans', (req, res) => {
+app.get('/api/service-plans', authenticateToken, requireRole('member'), (req, res) => {
   try {
     const plans = statements.getAllServicePlans.all();
     res.json(plans);
@@ -1155,13 +1329,10 @@ app.get('/api/service-plans', (req, res) => {
   }
 });
 
-app.post('/api/service-plans', (req, res) => {
+app.post('/api/service-plans', authenticateToken, requireRole('manager'), (req, res) => {
   try {
-    const body = req.body || {};
-    const title = body.title;
-    const date = body.date || new Date().toISOString().split('T')[0];
-    const serviceType = body.serviceType || body.service_type || 'Sunday Glorious';
-    const leaderId = body.leaderId || body.leader_id;
+    const { title, date, serviceType, leaderId } = req.body || {};
+    const planDate = date || new Date().toISOString().split('T')[0];
 
     if (!title) {
       return res.status(400).json({ error: 'Title is required' });
@@ -1169,8 +1340,8 @@ app.post('/api/service-plans', (req, res) => {
 
     const result = statements.insertServicePlan.run(
       title,
-      date,
-      serviceType,
+      planDate,
+      serviceType || 'Sunday Glorious',
       leaderId ? Number(leaderId) : null
     );
     res.json({ ok: true, id: result.lastInsertRowid });
@@ -1180,7 +1351,7 @@ app.post('/api/service-plans', (req, res) => {
   }
 });
 
-app.put('/api/service-plans/:id', (req, res) => {
+app.put('/api/service-plans/:id', authenticateToken, requireRole('manager'), (req, res) => {
   try {
     const body = req.body || {};
     const title = body.title;
@@ -1199,7 +1370,7 @@ app.put('/api/service-plans/:id', (req, res) => {
   }
 });
 
-app.delete('/api/service-plans/:id', (req, res) => {
+app.delete('/api/service-plans/:id', authenticateToken, requireRole('manager'), (req, res) => {
   try {
     statements.deleteServicePlan.run(req.params.id);
     res.json({ ok: true });
@@ -1209,7 +1380,7 @@ app.delete('/api/service-plans/:id', (req, res) => {
   }
 });
 
-app.get('/api/service-plans/:id/items', (req, res) => {
+app.get('/api/service-plans/:id/items', authenticateToken, requireRole('member'), (req, res) => {
   try {
     const items = statements.getServiceItems.all(req.params.id);
     res.json(items);
@@ -1219,7 +1390,7 @@ app.get('/api/service-plans/:id/items', (req, res) => {
   }
 });
 
-app.post('/api/service-plans/:id/items', (req, res) => {
+app.post('/api/service-plans/:id/items', authenticateToken, requireRole('manager'), (req, res) => {
   try {
     const body = req.body || {};
     const sequence = Number(body.sequence || 1);
@@ -1247,7 +1418,7 @@ app.post('/api/service-plans/:id/items', (req, res) => {
   }
 });
 
-app.put('/api/service-plans/items/:itemId', (req, res) => {
+app.put('/api/service-plans/items/:itemId', authenticateToken, requireRole('manager'), (req, res) => {
   try {
     const body = req.body || {};
     const title = body.title;
@@ -1263,7 +1434,7 @@ app.put('/api/service-plans/items/:itemId', (req, res) => {
   }
 });
 
-app.delete('/api/service-plans/items/:itemId', (req, res) => {
+app.delete('/api/service-plans/items/:itemId', authenticateToken, requireRole('manager'), (req, res) => {
   try {
     statements.deleteServiceItem.run(req.params.itemId);
     res.json({ ok: true });
@@ -1273,7 +1444,7 @@ app.delete('/api/service-plans/items/:itemId', (req, res) => {
   }
 });
 
-app.delete('/api/service-plans/roster/:rosterId', (req, res) => {
+app.delete('/api/service-plans/roster/:rosterId', authenticateToken, requireRole('manager'), (req, res) => {
   try {
     statements.deleteServiceRoster.run(req.params.rosterId);
     res.json({ ok: true });
@@ -1283,7 +1454,7 @@ app.delete('/api/service-plans/roster/:rosterId', (req, res) => {
   }
 });
 
-app.get('/api/service-plans/:id/roster', (req, res) => {
+app.get('/api/service-plans/:id/roster', authenticateToken, requireRole('member'), (req, res) => {
   try {
     const roster = statements.getServiceRoster.all(req.params.id);
     res.json(roster);
@@ -1293,7 +1464,7 @@ app.get('/api/service-plans/:id/roster', (req, res) => {
   }
 });
 
-app.post('/api/service-plans/:id/roster', (req, res) => {
+app.post('/api/service-plans/:id/roster', authenticateToken, requireRole('manager'), (req, res) => {
   try {
     const body = req.body || {};
     const department = body.department || 'Ushering';
@@ -1320,7 +1491,7 @@ app.post('/api/service-plans/:id/roster', (req, res) => {
 });
 
 // Master Church Calendar Endpoints (Planning Center Calendar)
-app.get('/api/calendar/events', (req, res) => {
+app.get('/api/calendar/events', authenticateToken, requireRole('member'), (req, res) => {
   try {
     const events = statements.getAllChurchEvents.all();
     res.json(events);
@@ -1330,7 +1501,7 @@ app.get('/api/calendar/events', (req, res) => {
   }
 });
 
-app.post('/api/calendar/events', (req, res) => {
+app.post('/api/calendar/events', authenticateToken, requireRole('manager'), (req, res) => {
   try {
     const body = req.body || {};
     const title = body.title;
@@ -1361,7 +1532,7 @@ app.post('/api/calendar/events', (req, res) => {
   }
 });
 
-app.delete('/api/calendar/events/:id', (req, res) => {
+app.delete('/api/calendar/events/:id', authenticateToken, requireRole('manager'), (req, res) => {
   try {
     statements.deleteChurchEvent.run(req.params.id);
     res.json({ ok: true });
@@ -1372,7 +1543,7 @@ app.delete('/api/calendar/events/:id', (req, res) => {
 });
 
 // Kiosk Check-In Endpoints (Planning Center Check-Ins)
-app.get('/api/kiosk/checkins', (req, res) => {
+app.get('/api/kiosk/checkins', authenticateToken, requireRole('manager'), (req, res) => {
   try {
     const checkins = statements.getAllKioskCheckins.all();
     res.json(checkins);
@@ -1384,11 +1555,7 @@ app.get('/api/kiosk/checkins', (req, res) => {
 
 app.post('/api/kiosk/checkin', (req, res) => {
   try {
-    const body = req.body || {};
-    const childName = body.childName || body.child_name;
-    const parentName = body.parentName || body.parent_name;
-    const parentPhone = body.parentPhone || body.parent_phone;
-    const department = body.department || 'Junior Church';
+    const { childName, parentName, parentPhone, department } = req.body || {};
 
     if (!childName || !parentName || !parentPhone) {
       return res.status(400).json({ error: 'Child Name, Parent Name, and Phone are required' });
@@ -1398,7 +1565,7 @@ app.post('/api/kiosk/checkin', (req, res) => {
       childName,
       parentName,
       parentPhone,
-      department,
+      department || 'Junior Church',
       code
     );
     res.json({ ok: true, id: result.lastInsertRowid, securityCode: code });
@@ -1418,7 +1585,17 @@ app.put('/api/kiosk/checkout/:id', (req, res) => {
   }
 });
 
-const port = process.env.PORT || 3001
-app.listen(port, () => console.log(`Backend started on http://localhost:${port}`))
+// Deny-by-default for any unmapped /api/* endpoints
+app.use('/api', (req, res) => {
+  res.status(404).json({ ok: false, message: 'Endpoint not found' });
+});
+
+if (require.main === module) {
+  const port = process.env.PORT || 3001
+  app.listen(port, () => console.log(`Backend started on http://localhost:${port}`))
+}
+
+module.exports = app;
+
 
 

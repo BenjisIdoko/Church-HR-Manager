@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
@@ -57,6 +57,24 @@ export function MemberDashboard({ user, worker, departments = DEFAULT_DEPARTMENT
     initialDepts.length > 0 ? Array.from(new Set(initialDepts)) : ["General Workforce"]
   );
   const [customDept, setCustomDept] = useState("");
+
+  // Sync worker properties if worker data arrives asynchronously after initial mount
+  useEffect(() => {
+    if (worker) {
+      if (worker.phone && !phone) {
+        setPhone(worker.phone);
+      }
+      if (worker.profileImage && !profileImage) {
+        setProfileImage(worker.profileImage);
+      }
+      if (worker.department && selectedDepts.length === 1 && selectedDepts[0] === "General Workforce") {
+        const depts = worker.department.split(",").map((d) => d.trim()).filter(Boolean);
+        if (depts.length > 0) {
+          setSelectedDepts(Array.from(new Set(depts)));
+        }
+      }
+    }
+  }, [worker]);
 
   const handleAddDept = (deptName: string) => {
     const trimmed = deptName.trim();
@@ -122,7 +140,7 @@ export function MemberDashboard({ user, worker, departments = DEFAULT_DEPARTMENT
       await onUpdateProfile({
         name,
         email,
-        phone,
+        phone: phone || worker?.phone || "",
         department: departmentString,
         departments: selectedDepts,
         profileImage,

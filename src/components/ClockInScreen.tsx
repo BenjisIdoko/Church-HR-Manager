@@ -66,6 +66,7 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
           latitude: parseGeofenceNumber(settings.church_latitude, CHURCH_LOCATION.latitude),
           longitude: parseGeofenceNumber(settings.church_longitude, CHURCH_LOCATION.longitude),
           radiusMeters: parseGeofenceNumber(settings.geofence_radius_meters, GEOFENCE_RADIUS_METERS),
+          toleranceMeters: parseGeofenceNumber(settings.geofence_tolerance_meters, 50),
         });
 
         if (user.workerId) {
@@ -121,7 +122,8 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
     }
 
     if (!isWithin) {
-      const msg = `You are ${formatDistance(distance)} from church grounds. You must be within ${geofenceConfig.radiusMeters}m to clock in.`;
+      const tol = geofenceConfig.toleranceMeters ?? 50;
+      const msg = `You are ${formatDistance(distance)} from church grounds. Allowed threshold is ${geofenceConfig.radiusMeters}m (+${tol}m GPS tolerance).`;
       setError(msg);
       toast.error(msg);
       return;
@@ -374,7 +376,7 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
               </div>
               <div className="flex justify-between text-[10px] text-slate-400 font-medium">
                 <span>0m (Auditorium)</span>
-                <span>Allowed: {geofenceConfig.radiusMeters}m</span>
+                <span>Allowed: {geofenceConfig.radiusMeters}m (+{geofenceConfig.toleranceMeters ?? 50}m tolerance)</span>
               </div>
             </div>
 

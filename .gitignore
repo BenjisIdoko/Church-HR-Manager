@@ -11,6 +11,9 @@ dist/
 !.env.example
 
 backend/*.db
+backend/*.db-journal
 backend/*.sqlite
 backend/*.sqlite3
+backend/uploads/*
+!backend/uploads/.gitkeep
 .vercel

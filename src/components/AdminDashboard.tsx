@@ -284,9 +284,11 @@ export function AdminDashboard({
               <div className="rounded-xl border border-[#e7e2d8] bg-[#fbf9f5] p-4 space-y-3">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-[#78716c] flex items-center gap-1.5">
-                    <ShieldCheck className="h-4 w-4 text-[#4A7C59]" /> Connection
+                    <ShieldCheck className={`h-4 w-4 ${loading ? "text-amber-600 animate-pulse" : "text-[#4A7C59]"}`} /> Connection
                   </span>
-                  <span className="font-semibold text-[#1c1917]">Online & Healthy</span>
+                  <span className="font-semibold text-[#1c1917]">
+                    {loading ? "Syncing..." : "API Connected & Healthy"}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-[#78716c]">Last Record Refresh</span>

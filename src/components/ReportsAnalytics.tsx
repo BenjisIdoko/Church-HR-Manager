@@ -69,8 +69,8 @@ export function ReportsAnalytics({ attendanceRecords, loading = false }: Reports
 
   useEffect(() => {
     if (latestDate) {
-      setEndDate(latestDate);
-      setStartDate(defaultStartDate);
+      setEndDate((prev) => (prev ? prev : latestDate));
+      setStartDate((prev) => (prev ? prev : defaultStartDate));
     }
   }, [defaultStartDate, latestDate]);
 

@@ -1,25 +1,11 @@
-import { useMemo, useState, useRef, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Badge } from "./ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { Download, Edit3, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RotateCcw, Clock2, Upload, Camera, User as UserIcon, X, Plus } from "lucide-react";
-import { toast } from "sonner";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
+import { Button } from "./ui/button";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Users } from "lucide-react";
 import { Worker } from "../types/models";
-import { sortData, SortConfig, exportToCSV } from "../utils/tableUtils";
-import { readAndCompressImage } from "../utils/imageUtils";
-
-interface UpdateHistoryEntry {
-  workerId: string;
-  workerName: string;
-  timestamp: string;
-  changes: string;
-}
+import { useWorkerDirectory, UpdateHistoryEntry } from "../hooks/useWorkerDirectory";
+import { WorkerDirectoryFilters } from "./member-directory/WorkerDirectoryFilters";
+import { WorkerTable } from "./member-directory/WorkerTable";
+import { EditWorkerModal } from "./member-directory/EditWorkerModal";
 
 interface MemberDirectoryProps {
   workers: Worker[];
@@ -36,817 +22,109 @@ export function MemberDirectory({
   onUpdateWorker,
   editable = true,
 }: MemberDirectoryProps) {
-  const [searchParams] = useSearchParams();
-  const urlSearchQuery = searchParams.get("search") || "";
-
-  const [searchQuery, setSearchQuery] = useState(urlSearchQuery);
-  const [departmentFilter, setDepartmentFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [roleFilter, setRoleFilter] = useState("all");
-  const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
-  const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Pagination State
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-
-  useEffect(() => {
-    if (urlSearchQuery) {
-      setSearchQuery(urlSearchQuery);
-    }
-  }, [urlSearchQuery]);
-
-  // Reset to first page when search or filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, departmentFilter, statusFilter, roleFilter]);
-
-  const safeWorkers = Array.isArray(workers) ? workers : [];
-  const safeDepartments = Array.isArray(departments) ? departments : [];
-  const safeUpdateHistory = Array.isArray(updateHistory) ? updateHistory : [];
-
-  const departmentOptions = useMemo(() => {
-    const set = new Set<string>();
-    safeDepartments.forEach((d) => { if (d && d.trim()) set.add(d.trim()); });
-    safeWorkers.forEach((w) => {
-      if (w?.department) {
-        w.department.split(",").forEach((d) => { if (d && d.trim()) set.add(d.trim()); });
-      }
-      if (Array.isArray(w?.departments)) {
-        w.departments.forEach((d) => { if (d && d.trim()) set.add(d.trim()); });
-      }
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [safeDepartments, safeWorkers]);
-
-  const roleOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(safeWorkers.map((w) => w?.role).filter((r): r is string => Boolean(r))),
-      ),
-    [safeWorkers],
-  );
-
-  // Token-based search matching function for flexible, accurate name/field searching
-  const matchWorkerWithQuery = (worker: Worker, rawQuery: string): boolean => {
-    const trimmed = rawQuery.trim().toLowerCase();
-    if (!trimmed) return true;
-
-    const terms = trimmed.split(/\s+/).filter(Boolean);
-    if (terms.length === 0) return true;
-
-    const workerName = (worker.name || "").toLowerCase();
-    const workerId = (worker.id || "").toLowerCase();
-    const workerEmail = (worker.email || "").toLowerCase();
-    const workerPhone = (worker.phone || "").replace(/\D/g, "");
-    const workerRole = (worker.role || "").toLowerCase();
-    const workerStatus = (worker.status || "").toLowerCase();
-
-    const deptsList = (worker.department || "")
-      .split(",")
-      .map((d) => d.trim().toLowerCase());
-    if (Array.isArray(worker.departments)) {
-      worker.departments.forEach((d) => deptsList.push((d || "").trim().toLowerCase()));
-    }
-    const workerDeptsStr = deptsList.join(" ");
-
-    const combinedText = `${workerName} ${workerId} ${workerEmail} ${workerDeptsStr} ${workerRole} ${workerStatus}`;
-
-    return terms.every((term) => {
-      if (combinedText.includes(term)) return true;
-      const digitsOnly = term.replace(/\D/g, "");
-      if (digitsOnly && workerPhone.includes(digitsOnly)) return true;
-      return false;
-    });
-  };
-
-  const strictFiltered = safeWorkers.filter((worker) => {
-    const matchesSearch = matchWorkerWithQuery(worker, searchQuery);
-
-    const workerDepts = (worker.department || "")
-      .split(",")
-      .map((d) => d.trim().toLowerCase())
-      .filter(Boolean);
-
-    if (Array.isArray(worker.departments)) {
-      worker.departments.forEach((d) => {
-        const lower = (d || "").trim().toLowerCase();
-        if (lower && !workerDepts.includes(lower)) {
-          workerDepts.push(lower);
-        }
-      });
-    }
-
-    const matchesDepartment =
-      departmentFilter === "all" ||
-      workerDepts.includes(departmentFilter.trim().toLowerCase());
-
-    const matchesStatus =
-      statusFilter === "all" ||
-      (worker.status || "").trim().toLowerCase() === statusFilter.trim().toLowerCase();
-
-    const matchesRole =
-      roleFilter === "all" ||
-      (worker.role || "").trim().toLowerCase() === roleFilter.trim().toLowerCase();
-
-    return matchesSearch && matchesDepartment && matchesStatus && matchesRole;
-  });
-
-  const isGlobalFallback =
-    searchQuery.trim().length > 0 &&
-    strictFiltered.length === 0 &&
-    (departmentFilter !== "all" || roleFilter !== "all" || statusFilter !== "all");
-
-  const globalFiltered = isGlobalFallback
-    ? safeWorkers.filter((worker) => matchWorkerWithQuery(worker, searchQuery))
-    : [];
-
-  const filteredWorkers = isGlobalFallback ? globalFiltered : strictFiltered;
-
-  const sortedWorkers = sortData(filteredWorkers, sortConfig);
-
-  // Calculate Paginated View
-  const totalItems = sortedWorkers.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  const safePage = Math.min(Math.max(1, currentPage), totalPages);
-  const startIndex = (safePage - 1) * pageSize;
-  const endIndex = Math.min(startIndex + pageSize, totalItems);
-  const paginatedWorkers = sortedWorkers.slice(startIndex, endIndex);
-
-  const handleSort = (key: string) => {
-    if (sortConfig?.key === key) {
-      if (sortConfig.direction === "asc") {
-        setSortConfig({ key, direction: "desc" });
-      } else if (sortConfig.direction === "desc") {
-        setSortConfig(null);
-      }
-    } else {
-      setSortConfig({ key, direction: "asc" });
-    }
-  };
-
-  const getSortIcon = (columnKey: string) => {
-    if (sortConfig?.key !== columnKey) return null;
-    return sortConfig.direction === "asc" ? (
-      <ChevronUp className="h-4 w-4 inline ml-1" />
-    ) : (
-      <ChevronDown className="h-4 w-4 inline ml-1" />
-    );
-  };
-
-  const handleExport = () => {
-    exportToCSV(
-      sortedWorkers,
-      `volunteer-directory_${new Date().toISOString().split("T")[0]}`,
-      ["id", "name", "email", "department", "role", "status"],
-    );
-  };
-
-  const handleReset = () => {
-    setSearchQuery("");
-    setDepartmentFilter("all");
-    setStatusFilter("all");
-    setRoleFilter("all");
-    setSortConfig(null);
-  };
-
-  const handleSaveWorker = async () => {
-    if (selectedWorker) {
-      try {
-        await onUpdateWorker(selectedWorker);
-        toast.success("Volunteer update saved and history recorded.");
-        setSelectedWorker(null);
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to save volunteer update.");
-      }
-    }
-  };
-
-  const handleSelectWorker = (worker: Worker) => {
-    setSelectedWorker(worker);
-  };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error("Image size must be less than 10MB");
-        return;
-      }
-      if (!file.type.startsWith("image/")) {
-        toast.error("Only image files are allowed");
-        return;
-      }
-
-      setUploading(true);
-      try {
-        let imageUrl = "";
-
-        try {
-          const formData = new FormData();
-          formData.append("image", file);
-
-          const response = await fetch("/api/upload-profile-image", {
-            method: "POST",
-            body: formData,
-          });
-          const result = await response.json();
-          if (response.ok && result.ok && result.imageUrl) {
-            imageUrl = result.imageUrl;
-          }
-        } catch {
-          // Backend API unreachable or static Vercel deployment
-        }
-
-        if (!imageUrl) {
-          imageUrl = await readAndCompressImage(file);
-        }
-
-        if (selectedWorker) {
-          setSelectedWorker({ ...selectedWorker, profileImage: imageUrl });
-        }
-        toast.success("Profile image loaded successfully");
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to process image");
-      } finally {
-        setUploading(false);
-      }
-    }
-  };
-
-  const hasActiveFilters = searchQuery !== "" || departmentFilter !== "all" || roleFilter !== "all" || statusFilter !== "all";
-  const pageTitle = "Volunteer Directory";
-  const pageDescription = "Search, filter and review volunteer records with change history in one place.";
+  const dir = useWorkerDirectory({ workers, departments, updateHistory });
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between gradient-hero-card p-6 rounded-2xl shadow-2xs">
+      {/* Header Banner */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#1c1917]">{pageTitle}</h1>
-          <p className="text-xs text-[#78716c] mt-1">{pageDescription}</p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Volunteer Directory</h1>
+            <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 text-xs font-bold">
+              {dir.filteredWorkers.length} Volunteers
+            </Badge>
+          </div>
+          <p className="text-slate-500 text-sm">
+            Search, filter, and manage ministry volunteer profiles and department roster assignments.
+          </p>
         </div>
-        <div className="flex gap-2">
-          {hasActiveFilters && (
-            <Button variant="outline" onClick={handleReset}>
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Clear Filters
-            </Button>
-          )}
-          <Button onClick={handleExport}>
-            <Download className="h-4 w-4 mr-2" />
-            Export CSV
+      </div>
+
+      <WorkerDirectoryFilters
+        searchQuery={dir.searchQuery} setSearchQuery={dir.setSearchQuery}
+        departmentFilter={dir.departmentFilter} setDepartmentFilter={dir.setDepartmentFilter}
+        statusFilter={dir.statusFilter} setStatusFilter={dir.setStatusFilter}
+        roleFilter={dir.roleFilter} setRoleFilter={dir.setRoleFilter}
+        departmentOptions={dir.departmentOptions}
+        roleOptions={dir.roleOptions}
+        filteredWorkers={dir.filteredWorkers}
+        onResetFilters={dir.handleResetFilters}
+      />
+
+      <WorkerTable
+        workers={dir.paginatedWorkers}
+        sortConfig={dir.sortConfig}
+        editable={editable}
+        onSort={dir.handleSort}
+        onSelectWorker={dir.setSelectedWorker}
+      />
+
+      {/* Pagination Bar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+        <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+          <span>Rows per page:</span>
+          <select
+            value={dir.pageSize}
+            onChange={(e) => dir.setPageSize(Number(e.target.value))}
+            className="h-8 rounded-lg border border-slate-200 px-2 bg-white text-xs font-bold"
+          >
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+          </select>
+          <span>
+            Page {dir.currentPage} of {dir.totalPages}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => dir.setCurrentPage(1)}
+            disabled={dir.currentPage === 1}
+            className="h-8 w-8 rounded-lg"
+          >
+            <ChevronsLeft className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => dir.setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={dir.currentPage === 1}
+            className="h-8 w-8 rounded-lg"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => dir.setCurrentPage((p) => Math.min(dir.totalPages, p + 1))}
+            disabled={dir.currentPage >= dir.totalPages}
+            className="h-8 w-8 rounded-lg"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => dir.setCurrentPage(dir.totalPages)}
+            disabled={dir.currentPage >= dir.totalPages}
+            className="h-8 w-8 rounded-lg"
+          >
+            <ChevronsRight className="w-4 h-4" />
           </Button>
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Volunteer Overview</CardTitle>
-          <CardDescription>
-            Search, filter and review volunteer records with change history in one place.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-4">
-            <div>
-              <Label>Search</Label>
-              <div className="relative">
-                <Input
-                  placeholder="Search by name, ID, department, or email"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className={searchQuery ? "pr-8" : ""}
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
-                    title="Clear search"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-            <div>
-              <Label>Department</Label>
-              <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Departments" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Departments</SelectItem>
-                  {departmentOptions.map((dept) => (
-                    <SelectItem key={dept} value={dept}>
-                      {dept}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Role</Label>
-              <Select value={roleFilter} onValueChange={setRoleFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Roles" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Roles</SelectItem>
-                  {roleOptions.map((role) => (
-                    <SelectItem key={role} value={role}>
-                      {role}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Status</Label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-end">
-              <Badge className="bg-slate-100 text-slate-700 font-medium text-xs px-2.5 py-1">
-                Showing {totalItems > 0 ? `${startIndex + 1}–${endIndex}` : 0} of {totalItems} (Total: {workers.length})
-              </Badge>
-            </div>
-          </div>
-
-          {/* Global Search Fallback Banner */}
-          {isGlobalFallback && (
-            <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-lg text-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4">
-              <span>
-                No match in <strong>{departmentFilter !== "all" ? departmentFilter : "selected filter"}</strong>. Showing {filteredWorkers.length} matching volunteer(s) for "<strong>{searchQuery}</strong>" across all departments.
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setDepartmentFilter("all");
-                  setRoleFilter("all");
-                  setStatusFilter("all");
-                }}
-                className="text-amber-900 underline hover:bg-amber-100 shrink-0 text-xs"
-              >
-                Clear Department Filter
-              </Button>
-            </div>
-          )}
-
-          <div className="overflow-x-auto rounded-lg border bg-white shadow-2xs">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Photo</TableHead>
-                  <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort("id")}>Worker ID{getSortIcon("id")}</TableHead>
-                  <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort("name")}>Name{getSortIcon("name")}</TableHead>
-                  <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort("email")}>Email{getSortIcon("email")}</TableHead>
-                  <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort("department")}>Department(s){getSortIcon("department")}</TableHead>
-                  <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort("role")}>Role{getSortIcon("role")}</TableHead>
-                  <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort("status")}>Status{getSortIcon("status")}</TableHead>
-                  {editable && <TableHead>Actions</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedWorkers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      No volunteers match the current filters.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  paginatedWorkers.map((worker) => (
-                    <TableRow key={worker.id}>
-                      <TableCell>
-                        {worker.profileImage ? (
-                          <img
-                            src={worker.profileImage}
-                            alt={worker.name}
-                            className="h-10 w-10 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center">
-                            <UserIcon className="h-5 w-5 text-slate-400" />
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="font-medium whitespace-nowrap">{worker.id}</TableCell>
-                      <TableCell className="font-semibold text-[#1c1917] whitespace-nowrap">{worker.name}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{worker.email}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1 max-w-[220px]">
-                          {(worker.department || "")
-                            .split(",")
-                            .map((d) => d.trim())
-                            .filter(Boolean)
-                            .map((deptName) => (
-                              <Badge
-                                key={deptName}
-                                variant="secondary"
-                                className="bg-[#e0e7ff] text-[#3730a3] border border-[#4f46e5]/20 font-medium text-[11px] px-2 py-0.5"
-                              >
-                                {deptName}
-                              </Badge>
-                            ))}
-                        </div>
-                      </TableCell>
-                      <TableCell>{worker.role}</TableCell>
-                      <TableCell>
-                        <Badge className={worker.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-700"}>
-                          {worker.status}
-                        </Badge>
-                      </TableCell>
-                      {editable && (
-                        <TableCell>
-                          <Button variant="outline" size="sm" onClick={() => handleSelectWorker(worker)}>
-                            <Edit3 className="h-4 w-4 mr-2" />
-                            Edit
-                          </Button>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Pagination Bar */}
-          {totalItems > 0 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 px-3 py-3 bg-[#faf7f2] border border-[#e7e2d8] rounded-xl text-xs text-[#57534e]">
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="font-medium text-[#1c1917]">
-                  Showing <strong>{startIndex + 1}–{endIndex}</strong> of <strong>{totalItems}</strong> volunteers
-                  {totalItems !== workers.length && ` (filtered from ${workers.length})`}
-                </span>
-                <div className="flex items-center gap-1.5 ml-0 sm:ml-2">
-                  <span className="text-[#78716c]">Rows:</span>
-                  <Select
-                    value={String(pageSize)}
-                    onValueChange={(val) => {
-                      setPageSize(Number(val));
-                      setCurrentPage(1);
-                    }}
-                  >
-                    <SelectTrigger className="h-8 w-16 text-xs bg-white border-[#e7e2d8] rounded-lg">
-                      <SelectValue placeholder={String(pageSize)} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="10">10</SelectItem>
-                      <SelectItem value="25">25</SelectItem>
-                      <SelectItem value="50">50</SelectItem>
-                      <SelectItem value="100">100</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1">
-                <span className="mr-2 text-[#78716c]">
-                  Page <strong className="text-[#1c1917]">{safePage}</strong> of <strong className="text-[#1c1917]">{totalPages}</strong>
-                </span>
-
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8 rounded-lg border-[#e7e2d8] bg-white hover:bg-[#f4f1ea]"
-                  onClick={() => setCurrentPage(1)}
-                  disabled={safePage === 1}
-                  title="First Page"
-                >
-                  <ChevronsLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8 rounded-lg border-[#e7e2d8] bg-white hover:bg-[#f4f1ea]"
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                  disabled={safePage === 1}
-                  title="Previous Page"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-
-                <div className="flex items-center gap-1 mx-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter((page) => {
-                      return (
-                        page === 1 ||
-                        page === totalPages ||
-                        Math.abs(page - safePage) <= 1
-                      );
-                    })
-                    .map((page, idx, array) => {
-                      const prevPage = array[idx - 1];
-                      const showEllipsis = prevPage && page - prevPage > 1;
-                      return (
-                        <div key={page} className="flex items-center gap-1">
-                          {showEllipsis && <span className="px-1 text-[#989086]">...</span>}
-                          <Button
-                            variant={safePage === page ? "default" : "outline"}
-                            size="icon"
-                            className={`h-8 w-8 rounded-lg text-xs font-semibold ${
-                              safePage === page
-                                ? "gradient-brand-icon text-white shadow-2xs border-0"
-                                : "border-[#e7e2d8] bg-white text-[#57534e] hover:bg-[#f4f1ea]"
-                            }`}
-                            onClick={() => setCurrentPage(page)}
-                          >
-                            {page}
-                          </Button>
-                        </div>
-                      );
-                    })}
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8 rounded-lg border-[#e7e2d8] bg-white hover:bg-[#f4f1ea]"
-                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                  disabled={safePage === totalPages}
-                  title="Next Page"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8 rounded-lg border-[#e7e2d8] bg-white hover:bg-[#f4f1ea]"
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={safePage === totalPages}
-                  title="Last Page"
-                >
-                  <ChevronsRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {editable && selectedWorker && (
-            <Dialog open={Boolean(selectedWorker)} onOpenChange={(open) => !open && setSelectedWorker(null)}>
-              <DialogContent className="max-w-4xl">
-                <DialogHeader>
-                  <DialogTitle>Edit Volunteer Record</DialogTitle>
-                  <DialogDescription>Update details for {selectedWorker.name}. Changes take effect immediately.</DialogDescription>
-                </DialogHeader>
-                <Card className="border-2 border-slate-200 shadow-sm">
-                  <CardContent className="space-y-4">
-                    {/* Profile Image Upload */}
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="relative">
-                        {selectedWorker.profileImage ? (
-                          <img
-                            src={selectedWorker.profileImage}
-                            alt="Profile"
-                            className="h-24 w-24 rounded-full object-cover border-4 border-slate-200"
-                          />
-                        ) : (
-                          <div className="h-24 w-24 rounded-full bg-slate-200 flex items-center justify-center border-4 border-slate-200">
-                            <UserIcon className="h-10 w-10 text-slate-400" />
-                          </div>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="absolute bottom-0 right-0 rounded-full bg-indigo-600 p-2 text-white hover:bg-indigo-700 transition-colors"
-                          disabled={uploading}
-                        >
-                          <Camera className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <div className="text-center">
-                        <Label htmlFor="edit-profile-image" className="text-base font-medium text-center">Profile Photo</Label>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          Upload a profile picture (JPEG, PNG, GIF, or WebP, max 5MB)
-                        </p>
-                        <div className="flex justify-center gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={uploading}
-                          >
-                            <Upload className="h-4 w-4 mr-2" />
-                            {uploading ? 'Uploading...' : 'Upload Image'}
-                          </Button>
-                          {selectedWorker.profileImage && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setSelectedWorker({ ...selectedWorker, profileImage: '' })}
-                            >
-                              Remove
-                            </Button>
-                          )}
-                        </div>
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          id="edit-profile-image"
-                          accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                          className="hidden"
-                          onChange={handleFileChange}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="edit-name">Name</Label>
-                        <Input
-                          id="edit-name"
-                          value={selectedWorker.name}
-                          onChange={(e) => setSelectedWorker({ ...selectedWorker, name: e.target.value })}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="edit-email">Email</Label>
-                        <Input
-                          id="edit-email"
-                          type="email"
-                          value={selectedWorker.email}
-                          onChange={(e) => setSelectedWorker({ ...selectedWorker, email: e.target.value })}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="edit-department">Department(s) (select multiple or type comma-separated)</Label>
-                        <Input
-                          id="edit-department"
-                          value={selectedWorker.department}
-                          onChange={(e) => setSelectedWorker({ ...selectedWorker, department: e.target.value })}
-                          placeholder="e.g. Intercessors, Media"
-                        />
-                        <div className="flex flex-wrap gap-1 mt-1.5 max-h-24 overflow-y-auto">
-                          {departmentOptions.map((dept) => {
-                            const isIncluded = (selectedWorker.department || "")
-                              .split(",")
-                              .map((d) => d.trim().toLowerCase())
-                              .includes(dept.trim().toLowerCase());
-                            return (
-                              <button
-                                key={dept}
-                                type="button"
-                                onClick={() => {
-                                  const currentDepts = (selectedWorker.department || "")
-                                    .split(",")
-                                    .map((d) => d.trim())
-                                    .filter(Boolean);
-                                  let nextDepts: string[];
-                                  if (isIncluded) {
-                                    nextDepts = currentDepts.filter((d) => d.toLowerCase() !== dept.toLowerCase());
-                                  } else {
-                                    nextDepts = [...currentDepts, dept];
-                                  }
-                                  setSelectedWorker({
-                                    ...selectedWorker,
-                                    department: nextDepts.join(", "),
-                                  });
-                                }}
-                                className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${
-                                  isIncluded
-                                    ? "bg-[#4f46e5] text-white border-[#4f46e5] font-medium"
-                                    : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                                }`}
-                              >
-                                {isIncluded ? "✓ " : "+ "}{dept}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="edit-role">Role</Label>
-                        <Select
-                          value={selectedWorker.role}
-                          onValueChange={(value) => setSelectedWorker({ ...selectedWorker, role: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Role" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {roleOptions.map((role) => (
-                              <SelectItem key={role} value={role}>
-                                {role}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="edit-phone">Phone</Label>
-                        <Input
-                          id="edit-phone"
-                          value={selectedWorker.phone}
-                          onChange={(e) => setSelectedWorker({ ...selectedWorker, phone: e.target.value })}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="edit-status">Status</Label>
-                        <Select
-                          value={selectedWorker.status}
-                          onValueChange={(value) => setSelectedWorker({ ...selectedWorker, status: value as Worker["status"] })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="active">Active</SelectItem>
-                            <SelectItem value="inactive">Inactive</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setSelectedWorker(null)}>
-                        Cancel
-                      </Button>
-                      <Button onClick={handleSaveWorker}>
-                        <Edit3 className="h-4 w-4 mr-2" />
-                        Save Changes
-                      </Button>
-                    </DialogFooter>
-                  </CardContent>
-                </Card>
-
-                <Card className="mt-6 border-2 border-slate-200 shadow-sm">
-                  <CardHeader>
-                    <CardTitle>Recent Update</CardTitle>
-                    <CardDescription>
-                      Inline history shows the changes for this member.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {safeUpdateHistory.filter((entry) => entry.workerId === selectedWorker.id).slice(0, 5).map((entry, index) => (
-                      <div key={index} className="rounded-2xl bg-slate-50 p-4">
-                        <div className="flex items-center justify-between gap-2 text-sm text-slate-600">
-                          <span>{entry.timestamp}</span>
-                          <Badge className="bg-slate-100 text-slate-700">{entry.changes}</Badge>
-                        </div>
-                        <p className="text-sm text-slate-700 mt-2">{entry.workerName}</p>
-                      </div>
-                    ))}
-                    {safeUpdateHistory.filter((entry) => entry.workerId === selectedWorker.id).length === 0 && (
-                      <p className="text-sm text-slate-500">No history tracked yet for this member.</p>
-                    )}
-                  </CardContent>
-                </Card>
-              </DialogContent>
-            </Dialog>
-          )}
-
-          <div className="mt-8 grid gap-6 xl:grid-cols-[1.4fr_0.6fr]">
-            <Card className="border-2 border-slate-200 shadow-sm">
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <Clock2 className="h-5 w-5 text-slate-700" />
-                  <div>
-                    <CardTitle>Update History</CardTitle>
-                    <CardDescription>
-                      Track all member record changes in chronological order.
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {safeUpdateHistory.length === 0 ? (
-                  <p className="text-sm text-slate-500">No update history recorded yet.</p>
-                ) : (
-                  safeUpdateHistory.map((entry, index) => (
-                    <div key={index} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600">
-                        <span>{entry.timestamp}</span>
-                        <Badge className="bg-slate-100 text-slate-700">{entry.workerName}</Badge>
-                      </div>
-                      <p className="text-sm text-slate-700 mt-2">Updated fields: {entry.changes}</p>
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </CardContent>
-      </Card>
+      <EditWorkerModal
+        worker={dir.selectedWorker}
+        departments={dir.departmentOptions}
+        isOpen={Boolean(dir.selectedWorker)}
+        onOpenChange={(open) => { if (!open) dir.setSelectedWorker(null); }}
+        onUpdateWorker={onUpdateWorker}
+      />
     </div>
   );
 }

@@ -10,6 +10,18 @@ db.pragma('foreign_keys = ON');
 
 // Create tables
 const createTables = `
+-- Users table
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'member',
+  worker_id TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Workers table
 CREATE TABLE IF NOT EXISTS workers (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -95,6 +107,7 @@ INSERT OR IGNORE INTO settings (key, value) VALUES ('clock_in_portal_description
 INSERT OR IGNORE INTO settings (key, value) VALUES ('church_latitude', '9.0765');
 INSERT OR IGNORE INTO settings (key, value) VALUES ('church_longitude', '7.3986');
 INSERT OR IGNORE INTO settings (key, value) VALUES ('geofence_radius_meters', '200');
+INSERT OR IGNORE INTO settings (key, value) VALUES ('geofence_tolerance_meters', '50');
 INSERT OR IGNORE INTO settings (key, value) VALUES ('device_import_enabled', 'true');
 
 -- Visitors table
@@ -341,9 +354,18 @@ if (courseCount === 0) {
 
 // Prepared statements for common operations
 const statements = {
+  // Users / Auth
+  getUserByEmail: db.prepare('SELECT * FROM users WHERE LOWER(email) = LOWER(?)'),
+  getUserById: db.prepare('SELECT id, name, email, role, worker_id FROM users WHERE id = ?'),
+  insertUser: db.prepare(`
+    INSERT OR REPLACE INTO users (name, email, password_hash, role, worker_id)
+    VALUES (?, LOWER(?), ?, ?, ?)
+  `),
+  getAllUsers: db.prepare('SELECT id, name, email, role, worker_id FROM users'),
+
   // Workers
   insertWorker: db.prepare(`
-    INSERT INTO workers (external_id, name, email, phone, dept, role, status)
+    INSERT OR REPLACE INTO workers (external_id, name, email, phone, dept, role, status)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `),
 

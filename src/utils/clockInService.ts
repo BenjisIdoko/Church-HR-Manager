@@ -68,6 +68,7 @@ export interface GeofenceConfig {
   latitude: number;
   longitude: number;
   radiusMeters: number;
+  toleranceMeters?: number;
 }
 
 export interface WorkerClockStatus {
@@ -110,6 +111,7 @@ export function isWithinGeofence(
     latitude: CHURCH_LOCATION.latitude,
     longitude: CHURCH_LOCATION.longitude,
     radiusMeters: GEOFENCE_RADIUS_METERS,
+    toleranceMeters: 50,
   }
 ): {
   isWithin: boolean;
@@ -120,9 +122,8 @@ export function isWithinGeofence(
     longitude: config.longitude,
   });
 
-  // Include GPS accuracy variance buffer (up to 300m for indoor Wi-Fi / cellular triangulation drift)
-  const accuracyBuffer = location.accuracy ? Math.min(location.accuracy, 300) : 150;
-  const effectiveThreshold = config.radiusMeters + accuracyBuffer;
+  const tolerance = config.toleranceMeters !== undefined ? config.toleranceMeters : 50;
+  const effectiveThreshold = config.radiusMeters + tolerance;
 
   return {
     isWithin: distance <= effectiveThreshold,
