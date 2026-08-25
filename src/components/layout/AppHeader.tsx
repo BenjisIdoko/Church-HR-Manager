@@ -66,7 +66,7 @@ export function AppHeader({
       </div>
 
       <div className="flex items-center gap-3">
-        {user.role === "superadmin" && <AbsenceNotification />}
+        <AbsenceNotification user={user} worker={matchedWorker} />
         <div className="hidden sm:flex items-center gap-2.5 border-l border-[#e7e2d8] pl-3">
           {profileImg ? (
             <img

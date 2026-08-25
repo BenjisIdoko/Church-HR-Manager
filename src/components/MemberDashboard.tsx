@@ -9,6 +9,7 @@ import { User as UserIcon, Save, ShieldCheck, Plus, X, Building2, Camera, Upload
 import { toast } from "sonner";
 import { User, Worker } from "../types/models";
 import { readAndCompressImage } from "../utils/imageUtils";
+import { AbsenceNotification } from "./AbsenceNotification";
 
 interface MemberDashboardProps {
   user: User;
@@ -162,9 +163,12 @@ export function MemberDashboard({ user, worker, departments = DEFAULT_DEPARTMENT
             Update your profile photo, contact details, and active department assignments.
           </p>
         </div>
-        <Button asChild variant="secondary" className="bg-[#4f46e5] text-white hover:bg-[#4338ca] self-start sm:self-auto">
-          <Link to="/clock-in">Clock In Now</Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <AbsenceNotification user={user} worker={worker} />
+          <Button asChild variant="secondary" className="bg-[#4f46e5] text-white hover:bg-[#4338ca]">
+            <Link to="/clock-in">Clock In Now</Link>
+          </Button>
+        </div>
       </div>
 
       <Card className="border-0 shadow-sm bg-white">

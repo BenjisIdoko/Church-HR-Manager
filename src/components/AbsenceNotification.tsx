@@ -20,12 +20,17 @@ const ABSENCE_REASONS = [
   "Others"
 ];
 
-export function AbsenceNotification() {
+interface AbsenceNotificationProps {
+  user?: { name?: string };
+  worker?: { department?: string; dept?: string };
+}
+
+export function AbsenceNotification({ user, worker }: AbsenceNotificationProps = {}) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: "",
-    department: "",
+    name: user?.name || "",
+    department: worker?.department || worker?.dept || "",
     reason: "",
     otherReason: "",
     dateFrom: "",
@@ -33,6 +38,17 @@ export function AbsenceNotification() {
     message: ""
   });
   const [error, setError] = useState("");
+
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen);
+    if (newOpen) {
+      setFormData((prev) => ({
+        ...prev,
+        name: prev.name || user?.name || "",
+        department: prev.department || worker?.department || worker?.dept || "",
+      }));
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,7 +93,7 @@ export function AbsenceNotification() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button className="gap-2 bg-[#dc5f3d] text-white shadow-sm hover:bg-[#c84f2f] focus-visible:ring-[#dc5f3d]">
           <AlertCircle className="h-4 w-4" />
