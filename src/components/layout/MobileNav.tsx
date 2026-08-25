@@ -149,7 +149,11 @@ export function MobileNav({
 
       {/* Mobile Bottom Navigation Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-[#e7e2d8] bg-[#fbf9f5]/95 backdrop-blur-md xl:hidden">
-        <div className="grid grid-cols-4 h-16">
+        <div
+          className={`grid h-16 ${
+            mobileBottomTabs.length === 3 ? "grid-cols-3" : "grid-cols-4"
+          }`}
+        >
           {mobileBottomTabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = location.pathname === tab.path;

@@ -30,7 +30,8 @@ export function WorkerTable({
   };
 
   return (
-    <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
+    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+      <div className="overflow-x-auto">
       <Table>
         <TableHeader className="bg-slate-50">
           <TableRow>
@@ -157,6 +158,7 @@ export function WorkerTable({
           )}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 }

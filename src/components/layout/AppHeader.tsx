@@ -55,11 +55,11 @@ export function AppHeader({
         </Button>
         <button
           onClick={onOpenCommand}
-          className="flex items-center gap-2 rounded-xl border border-[#e7e2d8] bg-[#faf7f2] px-3 py-1.5 text-xs text-[#78716c] hover:bg-[#eae4d7] transition-all shadow-2xs"
+          className="flex shrink-0 items-center gap-2 rounded-xl border border-[#e7e2d8] bg-[#faf7f2] px-2.5 sm:px-3 py-1.5 text-xs text-[#78716c] hover:bg-[#eae4d7] transition-all shadow-2xs"
         >
           <Command className="h-3.5 w-3.5 text-[#a8a29e]" />
-          <span>Quick actions & search...</span>
-          <kbd className="ml-2 rounded bg-white px-1.5 py-0.5 text-[10px] font-mono border border-[#e7e2d8] text-[#a8a29e]">
+          <span className="hidden sm:inline whitespace-nowrap">Quick actions & search...</span>
+          <kbd className="hidden sm:inline-block ml-2 rounded bg-white px-1.5 py-0.5 text-[10px] font-mono border border-[#e7e2d8] text-[#a8a29e]">
             ⌘K
           </kbd>
         </button>
