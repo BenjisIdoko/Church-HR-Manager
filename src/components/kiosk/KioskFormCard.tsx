@@ -97,10 +97,16 @@ export function KioskFormCard({
           <Button
             type="submit"
             disabled={submitting}
-            className="w-full h-14 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold text-lg rounded-2xl shadow-lg shadow-indigo-200 transition-all gap-2"
+            className="w-full h-12 sm:h-14 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold text-sm sm:text-base md:text-lg rounded-2xl shadow-lg shadow-indigo-200 transition-all gap-1.5 sm:gap-2 px-3 sm:px-4"
           >
-            <ShieldCheck className="w-6 h-6" />
-            {submitting ? "Processing Check-In..." : "Complete Check-In & Get Badge"}
+            <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
+            {submitting ? (
+              <span className="whitespace-nowrap">Processing Check-In...</span>
+            ) : (
+              <span className="whitespace-nowrap">
+                Complete Check-In<span className="hidden sm:inline"> &amp; Get Badge</span>
+              </span>
+            )}
           </Button>
         </form>
       </CardContent>

@@ -90,6 +90,14 @@ const loginRateLimiter = rateLimit({
   message: { ok: false, message: 'Too many login attempts. Please try again in 15 minutes.' },
 })
 
+const kioskRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, message: 'Too many kiosk check-in submissions. Please try again shortly.' },
+})
+
 const apiRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
@@ -1553,7 +1561,7 @@ app.get('/api/kiosk/checkins', authenticateToken, requireRole('manager'), (req, 
   }
 });
 
-app.post('/api/kiosk/checkin', (req, res) => {
+app.post('/api/kiosk/checkin', kioskRateLimiter, (req, res) => {
   try {
     const { childName, parentName, parentPhone, department } = req.body || {};
 
