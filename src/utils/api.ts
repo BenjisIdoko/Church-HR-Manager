@@ -148,7 +148,7 @@ export async function loginUser(identifier: string, password: string): Promise<U
       throw error;
     }
 
-    // Demo / Offline fallback when backend API is unavailable or static hosting returns non-JSON HTML
+    // Demo / Offline fallback when backend API is unavailable or static hosting returns non-JSON HTML / 405 Method Not Allowed
     if (
       (normId === "admin@church.com" || normId === "admin" || normId === "superadmin") &&
       password === "Admin@123"
@@ -183,6 +183,14 @@ export async function loginUser(identifier: string, password: string): Promise<U
         role: "member",
         workerId: "W001",
       };
+    }
+
+    if (
+      normId === "admin@church.com" || normId === "admin" || normId === "superadmin" ||
+      normId === "manager@church.com" || normId === "manager" ||
+      normId === "alice@church.org" || normId === "w001"
+    ) {
+      throw new Error("Invalid credentials");
     }
 
     throw error;

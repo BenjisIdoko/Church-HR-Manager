@@ -317,6 +317,7 @@ export function LoginForm({ workers, onLogin }: LoginFormProps) {
                     <input
                       type="text"
                       required
+                      autoComplete="username"
                       placeholder="e.g. W001 or Alice Johnson"
                       value={workerInput}
                       onChange={(e) => setWorkerInput(e.target.value)}
@@ -384,6 +385,7 @@ export function LoginForm({ workers, onLogin }: LoginFormProps) {
                       <input
                         type="password"
                         required
+                        autoComplete="current-password"
                         placeholder="Enter HOD passcode"
                         value={hodPasscode}
                         onChange={(e) => setHodPasscode(e.target.value)}
@@ -426,6 +428,7 @@ export function LoginForm({ workers, onLogin }: LoginFormProps) {
                       <input
                         type="email"
                         required
+                        autoComplete="username"
                         value={adminUsername}
                         onChange={(e) => setAdminUsername(e.target.value)}
                         className="w-full text-xs text-white bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-4 py-3.5 outline-none placeholder-slate-600 focus:border-indigo-500/80 focus:ring-1 focus:ring-indigo-500/30 transition-all font-mono"
@@ -444,6 +447,7 @@ export function LoginForm({ workers, onLogin }: LoginFormProps) {
                       </span>
                       <input
                         type="password"
+                        autoComplete="current-password"
                         placeholder="Enter admin passcode"
                         value={adminPassword}
                         onChange={(e) => setAdminPassword(e.target.value)}
