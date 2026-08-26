@@ -110,6 +110,19 @@ test('Authentication Flow and Security Hardening', async (t) => {
     assert.ok(setCookie.toLowerCase().includes('httponly'), 'Cookie should be httpOnly');
   });
 
+  await t.test('POST /api/login supports worker_id lookup', async () => {
+    const res = await fetch(`${baseUrl}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier: 'W001', password: testPassword }),
+    });
+
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.user.email, 'member@test.com');
+  });
+
   await t.test('GET /api/me works with valid cookie and fails without', async () => {
     // 1. Unauthenticated request
     const unauthRes = await fetch(`${baseUrl}/api/me`);

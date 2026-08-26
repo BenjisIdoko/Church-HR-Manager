@@ -356,6 +356,7 @@ if (courseCount === 0) {
 const statements = {
   // Users / Auth
   getUserByEmail: db.prepare('SELECT * FROM users WHERE LOWER(email) = LOWER(?)'),
+  getUserByIdentifier: db.prepare('SELECT * FROM users WHERE LOWER(email) = LOWER(?) OR LOWER(worker_id) = LOWER(?)'),
   getUserById: db.prepare('SELECT id, name, email, role, worker_id FROM users WHERE id = ?'),
   insertUser: db.prepare(`
     INSERT OR REPLACE INTO users (name, email, password_hash, role, worker_id)

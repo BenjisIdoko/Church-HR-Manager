@@ -26,12 +26,26 @@ export function useAuth() {
         const u = await getCurrentUser();
         if (u) {
           localStorage.setItem("church_hr_user", JSON.stringify(u));
-        } else {
-          localStorage.removeItem("church_hr_user");
+          return u;
         }
-        return u;
+        const saved = localStorage.getItem("church_hr_user");
+        if (saved) {
+          try {
+            return JSON.parse(saved) as User;
+          } catch {
+            localStorage.removeItem("church_hr_user");
+          }
+        }
+        return null;
       } catch (err) {
-        localStorage.removeItem("church_hr_user");
+        const saved = localStorage.getItem("church_hr_user");
+        if (saved) {
+          try {
+            return JSON.parse(saved) as User;
+          } catch {
+            localStorage.removeItem("church_hr_user");
+          }
+        }
         return null;
       }
     },
