@@ -21,6 +21,7 @@ import {
 import { AttendanceRecord } from "../types/models";
 import { useNavigate } from "react-router-dom";
 import { sortData, SortConfig, exportToCSV } from "../utils/tableUtils";
+import { parseLocalDate } from "../utils/dateUtils";
 import { DatePicker } from "./ui/date-picker";
 import { toast } from "sonner";
 
@@ -145,11 +146,11 @@ export function AttendanceOverview({ attendanceRecords, loading = false }: Atten
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleReset} className="border-slate-300 text-slate-700 text-xs font-semibold gap-1.5 hover:bg-slate-100">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={handleReset} className="flex-1 sm:flex-initial border-slate-300 text-slate-700 text-xs font-semibold gap-1.5 hover:bg-slate-100">
             <RotateCcw className="w-3.5 h-3.5 text-slate-500" /> Reset Filters
           </Button>
-          <Button onClick={handleExport} className="bg-slate-900 hover:bg-slate-800 text-white font-bold gap-2 text-xs shadow-sm">
+          <Button onClick={handleExport} className="flex-1 sm:flex-initial bg-slate-900 hover:bg-slate-800 text-white font-bold gap-2 text-xs shadow-sm">
             <Download className="w-4 h-4" /> Export CSV
           </Button>
         </div>
@@ -284,7 +285,7 @@ export function AttendanceOverview({ attendanceRecords, loading = false }: Atten
       {/* Attendance Table */}
       <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full min-w-[640px] text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px]">
                 <th
@@ -329,7 +330,7 @@ export function AttendanceOverview({ attendanceRecords, loading = false }: Atten
                 </tr>
               ) : (
                 sortedRecords.map((record) => {
-                  const dateObj = new Date(record.date);
+                  const dateObj = parseLocalDate(record.date);
                   const dayName = dateObj.toLocaleDateString("en-US", { weekday: "short" });
 
                   return (

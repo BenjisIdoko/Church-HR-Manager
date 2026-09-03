@@ -288,7 +288,7 @@ export function LoginForm({ workers, onLogin }: LoginFormProps) {
                     setHodError("");
                     setAdminError("");
                   }}
-                  className={`py-2 text-md font-bold text-center rounded-lg transition-all ${
+                  className={`py-2 px-1 text-xs sm:text-sm font-bold text-center rounded-lg transition-all truncate ${
                     loginType === type
                       ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
                       : "text-slate-400 hover:text-white hover:bg-slate-800/40"

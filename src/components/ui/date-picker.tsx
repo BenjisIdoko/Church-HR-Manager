@@ -4,6 +4,7 @@ import { cn } from "./utils";
 import { Button } from "./button";
 import { Calendar } from "./calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
+import { parseLocalDate } from "../../utils/dateUtils";
 
 export interface DatePickerProps {
   value?: string; // Expects "YYYY-MM-DD"
@@ -26,15 +27,8 @@ export function DatePicker({
 
   const selectedDate = React.useMemo(() => {
     if (!value) return undefined;
-    try {
-      const parts = value.split("-").map(Number);
-      if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
-        return new Date(parts[0], parts[1] - 1, parts[2]);
-      }
-    } catch {
-      // Fallback
-    }
-    return undefined;
+    const parsed = parseLocalDate(value);
+    return isNaN(parsed.getTime()) ? undefined : parsed;
   }, [value]);
 
   const handleSelect = (date?: Date) => {

@@ -5,6 +5,7 @@ import { Badge } from "../ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Search, RefreshCw, CheckCircle2 } from "lucide-react";
 import { formatDistance } from "../../utils/clockInService";
+import { isRecordWithinGeofence } from "../../utils/clockInRecordUtils";
 
 interface ClockInLogsTableProps {
   records: any[];
@@ -33,10 +34,11 @@ export function ClockInLogsTable({
     const matchesSearch =
       !searchQuery ||
       (r.workerName || r.worker_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (r.department || "").toLowerCase().includes(searchQuery.toLowerCase());
+      (r.department || r.worker_dept || "").toLowerCase().includes(searchQuery.toLowerCase());
 
-    const isWithin = r.withinGeofence ?? r.within_geofence;
-    if (geofenceFilter === "in-range") return matchesSearch && Boolean(isWithin);
+    const isWithin = isRecordWithinGeofence(r);
+
+    if (geofenceFilter === "in-range") return matchesSearch && isWithin;
     if (geofenceFilter === "out-of-range") return matchesSearch && !isWithin;
     return matchesSearch;
   });
@@ -106,11 +108,11 @@ export function ClockInLogsTable({
               <TableBody>
                 {filteredRecords.map((r, i) => {
                   const name = r.workerName || r.worker_name || "Unknown Volunteer";
-                  const dept = r.department || "General";
+                  const dept = r.department || r.worker_dept || "General";
                   const type = r.type || "clock-in";
                   const time = new Date(r.timestamp || r.created_at).toLocaleTimeString();
-                  const dist = r.distanceMeters ?? r.distance_meters;
-                  const isWithin = r.withinGeofence ?? r.within_geofence;
+                  const dist = r.distance_from_church ?? r.distance ?? r.distanceMeters ?? r.distance_meters;
+                  const isWithin = isRecordWithinGeofence(r);
 
                   return (
                     <TableRow key={r.id || i} className="hover:bg-slate-50/80">

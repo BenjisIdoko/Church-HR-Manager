@@ -205,7 +205,7 @@ export function getCurrentLocation(): Promise<LocationCoordinates> {
       {
         enableHighAccuracy: true,
         timeout: 8000,
-        maximumAge: 10000,
+        maximumAge: 0,
       }
     );
   });
@@ -279,9 +279,9 @@ export function watchLocation(
       onError(message);
     },
     {
-      enableHighAccuracy: false,
-      timeout: 20000,
-      maximumAge: 10000,
+      enableHighAccuracy: true,
+      timeout: 12000,
+      maximumAge: 2000,
     }
   );
 

@@ -197,11 +197,11 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header Banner */}
-      <div className="gradient-hero-card p-6 rounded-2xl shadow-2xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="gradient-hero-card p-4 sm:p-6 rounded-2xl shadow-2xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold tracking-tight text-[#1c1917]">Volunteer Clock-In Portal</h1>
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#e0e7ff] px-3 py-0.5 text-xs font-semibold text-[#3730a3]">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1c1917]">Volunteer Clock-In Portal</h1>
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#e0e7ff] px-2.5 py-0.5 text-xs font-semibold text-[#3730a3]">
               <Radio className="h-3.5 w-3.5 text-[#4f46e5] animate-pulse" /> Live Geofence
             </span>
           </div>
@@ -211,12 +211,12 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
         </div>
 
         {/* Live Digital Clock Badge */}
-        <div className="flex items-center gap-3 p-3 bg-white/80 backdrop-blur-xs rounded-xl border border-slate-200 shadow-2xs self-start md:self-auto">
+        <div className="flex items-center gap-3 p-2.5 sm:p-3 bg-white/80 backdrop-blur-xs rounded-xl border border-slate-200 shadow-2xs self-start md:self-auto">
           <div className="p-2 bg-[#4f46e5]/10 text-[#4f46e5] rounded-lg">
             <Clock className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-base font-extrabold text-[#1c1917] tracking-wider font-mono">
+            <p className="text-sm sm:text-base font-extrabold text-[#1c1917] tracking-wider font-mono">
               {currentTime.toLocaleTimeString()}
             </p>
             <p className="text-[10px] text-slate-500 font-medium">{formatDate(currentTime.toISOString())}</p>
@@ -225,9 +225,9 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
       </div>
 
       {/* Service Schedule Banner */}
-      <div className={`rounded-2xl border p-4 flex items-center justify-between gap-3 ${serviceInfo.isServiceDay ? 'border-emerald-200 bg-emerald-50/70 text-emerald-950' : 'border-indigo-200 bg-indigo-50/70 text-indigo-950'}`}>
+      <div className={`rounded-2xl border p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${serviceInfo.isServiceDay ? 'border-emerald-200 bg-emerald-50/70 text-emerald-950' : 'border-indigo-200 bg-indigo-50/70 text-indigo-950'}`}>
         <div className="flex items-center gap-3">
-          <div className={`p-2.5 rounded-xl ${serviceInfo.isServiceDay ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white'}`}>
+          <div className={`p-2.5 rounded-xl shrink-0 ${serviceInfo.isServiceDay ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white'}`}>
             <Calendar className="h-5 w-5" />
           </div>
           <div>
@@ -239,14 +239,14 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
             </p>
           </div>
         </div>
-        <Badge className={serviceInfo.isServiceDay ? "bg-emerald-600 text-white" : "bg-indigo-600 text-white"}>
+        <Badge className={`self-start sm:self-center ${serviceInfo.isServiceDay ? "bg-emerald-600 text-white" : "bg-indigo-600 text-white"}`}>
           {serviceInfo.isServiceDay ? "Active Day" : "Off-Day"}
         </Badge>
       </div>
 
       {/* Primary Action Hero Card */}
       <Card className="border-0 shadow-sm bg-white rounded-2xl overflow-hidden text-center">
-        <CardContent className="p-8 space-y-6">
+        <CardContent className="p-4 sm:p-8 space-y-6">
           {/* Main Tactile Action Button */}
           <div className="flex flex-col items-center justify-center space-y-4">
             <div className="relative">
@@ -258,11 +258,11 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
                 type="button"
                 onClick={handleClockInOut}
                 disabled={loading || !portalEnabled || !isWithin || distance === null}
-                className={`relative h-44 w-44 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-xl border-4 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`relative h-36 w-36 sm:h-44 sm:w-44 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-xl border-4 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
                   clockStatus?.isClockedIn
                     ? "bg-gradient-to-br from-rose-500 to-red-600 border-rose-300 text-white shadow-rose-500/30 hover:from-rose-600 hover:to-red-700"
                     : isWithin
-                    ? "bg-gradient-to-br from-[#4f46e5] to-[#2563eb] border-indigo-300 text-white shadow-[#4f46e5]/40 hover:from-[#4338ca] hover:to-[#1d4ed8] scale-105"
+                    ? "bg-gradient-to-br from-[#4f46e5] to-[#2563eb] border-indigo-300 text-white shadow-[#4f46e5]/40 hover:from-[#4338ca] hover:to-[#1d4ed8] sm:scale-105"
                     : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
                 }`}
               >

@@ -27,6 +27,8 @@ import {
 } from "./mockData";
 
 
+import { isWithinGeofence } from "./clockInService";
+
 interface ApiErrorPayload {
   message?: string;
   error?: string;
@@ -382,6 +384,18 @@ const DEFAULT_CLOCK_IN_SETTINGS: ClockInSettings = {
   device_import_enabled: "true",
 };
 
+function readCachedClockInSettings(): ClockInSettings {
+  const saved = localStorage.getItem("church_hr_clock_in_settings");
+  if (saved) {
+    try {
+      return { ...DEFAULT_CLOCK_IN_SETTINGS, ...JSON.parse(saved) };
+    } catch {
+      // ignore
+    }
+  }
+  return DEFAULT_CLOCK_IN_SETTINGS;
+}
+
 export async function recordClockIn(data: ClockInRequest): Promise<ClockInResponse> {
   const savedLogs = localStorage.getItem("church_hr_clock_ins") || "[]";
   let logs: ClockInRecord[] = [];
@@ -390,6 +404,17 @@ export async function recordClockIn(data: ClockInRequest): Promise<ClockInRespon
   } catch {
     // ignore
   }
+
+  const settings = readCachedClockInSettings();
+  const { isWithin, distance } = isWithinGeofence(
+    { latitude: data.latitude, longitude: data.longitude },
+    {
+      latitude: Number(settings.church_latitude),
+      longitude: Number(settings.church_longitude),
+      radiusMeters: Number(settings.geofence_radius_meters),
+      toleranceMeters: Number(settings.geofence_tolerance_meters),
+    }
+  );
 
   const timestamp = new Date().toISOString();
   const id = Date.now();
@@ -404,8 +429,8 @@ export async function recordClockIn(data: ClockInRequest): Promise<ClockInRespon
     type: data.type,
     latitude: data.latitude,
     longitude: data.longitude,
-    distance_from_church: 0,
-    is_within_geofence: 1,
+    distance_from_church: Math.round(distance),
+    is_within_geofence: isWithin ? 1 : 0,
     source: "web_portal",
     notes: data.notes,
   };
@@ -432,8 +457,8 @@ export async function recordClockIn(data: ClockInRequest): Promise<ClockInRespon
         workerName: newLog.worker_name,
         type: data.type,
         timestamp,
-        distance: 0,
-        isWithinGeofence: true,
+        distance: Math.round(distance),
+        isWithinGeofence: isWithin,
       },
     };
   }
@@ -566,30 +591,11 @@ export async function getClockInSettings(): Promise<{ ok: boolean; settings: Clo
     // Fallback to localStorage or DEFAULT_CLOCK_IN_SETTINGS when backend API is unavailable / static deployment
   }
 
-  const saved = localStorage.getItem("church_hr_clock_in_settings");
-  let settings = DEFAULT_CLOCK_IN_SETTINGS;
-  if (saved) {
-    try {
-      settings = { ...DEFAULT_CLOCK_IN_SETTINGS, ...JSON.parse(saved) };
-    } catch {
-      // ignore
-    }
-  }
-
-  return { ok: true, settings };
+  return { ok: true, settings: readCachedClockInSettings() };
 }
 
 export async function updateClockInSettings(settings: Partial<ClockInSettings>): Promise<{ ok: boolean; message: string; settings: ClockInSettings }> {
-  const currentSaved = localStorage.getItem("church_hr_clock_in_settings");
-  let current = DEFAULT_CLOCK_IN_SETTINGS;
-  if (currentSaved) {
-    try {
-      current = { ...DEFAULT_CLOCK_IN_SETTINGS, ...JSON.parse(currentSaved) };
-    } catch {
-      // ignore
-    }
-  }
-  const merged = { ...current, ...settings };
+  const merged = { ...readCachedClockInSettings(), ...settings };
   localStorage.setItem("church_hr_clock_in_settings", JSON.stringify(merged));
 
   try {
@@ -1515,17 +1521,37 @@ export async function fetchChurchEvents(): Promise<ChurchEvent[]> {
 }
 
 export async function createChurchEvent(event: Partial<ChurchEvent>): Promise<{ ok: boolean; id: number }> {
-  return apiRequest<{ ok: boolean; id: number }>("/api/calendar/events", {
+  const res = await apiRequest<{ ok: boolean; id: number }>("/api/calendar/events", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(event),
   });
+  if (!res || !res.ok) {
+    throw new Error("Failed to schedule event");
+  }
+  return res;
 }
 
 export async function deleteChurchEvent(id: number): Promise<{ ok: boolean }> {
-  return apiRequest<{ ok: boolean }>(`/api/calendar/events/${id}`, {
+  const res = await apiRequest<{ ok: boolean }>(`/api/calendar/events/${id}`, {
     method: "DELETE",
   });
+  if (!res || !res.ok) {
+    throw new Error("Failed to remove event");
+  }
+  return res;
+}
+
+export async function submitAbsenceReport(formData: Record<string, string>): Promise<{ ok: boolean; message?: string }> {
+  const res = await apiRequest<{ ok: boolean; message?: string }>("/api/absence", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(formData),
+  });
+  if (!res || !res.ok) {
+    throw new Error(res?.message || "Failed to submit absence report");
+  }
+  return res;
 }
 
 // Kiosk Check-In APIs (Planning Center Check-Ins)

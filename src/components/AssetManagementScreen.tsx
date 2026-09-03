@@ -367,7 +367,7 @@ export function AssetManagementScreen({ workers }: AssetManagementScreenProps) {
               <label className="text-xs font-semibold text-slate-700">Equipment / Asset Name *</label>
               <Input placeholder="e.g. Behringer X32 Digital Mixer" value={name} onChange={(e) => setName(e.target.value)} required />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700">Category</label>
                 <select
@@ -396,7 +396,7 @@ export function AssetManagementScreen({ workers }: AssetManagementScreenProps) {
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700">Location / Venue *</label>
                 <Input placeholder="e.g. Main Sanctuary Sound Booth" value={location} onChange={(e) => setLocation(e.target.value)} required />

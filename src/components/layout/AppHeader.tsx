@@ -65,33 +65,33 @@ export function AppHeader({
         </button>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         <AbsenceNotification user={user} worker={matchedWorker} />
-        <div className="hidden sm:flex items-center gap-2.5 border-l border-[#e7e2d8] pl-3">
+        <div className="flex items-center gap-2 border-l border-[#e7e2d8] pl-2 sm:pl-3">
           {profileImg ? (
             <img
               src={profileImg}
               alt={user.name}
-              className="h-8 w-8 rounded-full object-cover border border-[#e7e2d8] shadow-2xs"
+              className="h-8 w-8 rounded-full object-cover border border-[#e7e2d8] shadow-2xs shrink-0"
             />
           ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-white font-bold text-xs shadow-2xs tracking-wider">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-white font-bold text-xs shadow-2xs tracking-wider shrink-0">
               {initials}
             </div>
           )}
 
-          <div className="text-right">
-            <p className="text-xs font-semibold text-[#1c1917]">{user.name}</p>
-            <p className="text-[10px] text-[#78716c] font-medium">{roleLabel}</p>
+          <div className="hidden md:block text-right max-w-[120px] lg:max-w-none">
+            <p className="text-xs font-semibold text-[#1c1917] truncate">{user.name}</p>
+            <p className="text-[10px] text-[#78716c] font-medium truncate">{roleLabel}</p>
           </div>
           <Button
             variant="ghost"
             size="icon"
             onClick={onOpenLogout}
-            className="text-[#78716c] hover:bg-[#eae4d7] hover:text-[#1c1917] rounded-xl h-8 w-8 ml-1"
+            className="text-[#78716c] hover:bg-[#eae4d7] hover:text-[#1c1917] rounded-xl h-8 w-8 shrink-0"
             title="Sign Out"
           >
-            <LogOut className="h-3.5 w-3.5" />
+            <LogOut className="h-4 w-4" />
           </Button>
         </div>
       </div>

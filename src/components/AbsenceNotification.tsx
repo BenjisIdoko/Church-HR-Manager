@@ -9,6 +9,7 @@ import { AlertCircle, Send } from "lucide-react";
 import { Alert, AlertDescription } from "./ui/alert";
 import { toast } from "sonner";
 import { DatePicker } from "./ui/date-picker";
+import { submitAbsenceReport } from "../utils/api";
 
 const ABSENCE_REASONS = [
   "School",
@@ -56,17 +57,9 @@ export function AbsenceNotification({ user, worker }: AbsenceNotificationProps =
     setError("");
 
     try {
-      const response = await fetch('/api/absence', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
+      const result = await submitAbsenceReport(formData);
 
-      const result = await response.json();
-
-      if (!response.ok || !result.ok) {
+      if (!result.ok) {
         throw new Error(result.message || 'Failed to submit absence notification');
       }
 

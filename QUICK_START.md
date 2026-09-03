@@ -99,12 +99,12 @@ W002,Jane Smith,jane@church.com,08012345678,Choir,Member,active
 - `src/utils/csvParser.ts` - CSV parsing and validation
 - `src/utils/tableUtils.ts` - Filtering, sorting, export
 - `src/guidelines/CSV_FILTERING_GUIDE.md` - Complete documentation
-- `IMPLEMENTATION_SUMMARY.md` - This implementation summary
+- `DOCUMENTATION_INDEX.md` - Complete documentation index
 
 ### Modified Files
 - `src/components/DataImportScreen.tsx` - Complete redesign
 - `src/components/AttendanceOverview.tsx` - Added sort/filter/export
-- `src/components/WorkersDirectory.tsx` - Added sort/filter/export
+- `src/components/MemberDirectory.tsx` - Added sort/filter/export
 - `src/components/ReportsAnalytics.tsx` - Added CSV export
 
 ## Features at a Glance
@@ -235,7 +235,7 @@ All features use only existing packages:
 
 For detailed information, see:
 - `src/guidelines/CSV_FILTERING_GUIDE.md` - Complete API reference
-- `IMPLEMENTATION_SUMMARY.md` - Full implementation details
+- `DOCUMENTATION_INDEX.md` - Complete documentation index
 
 ## Support
 

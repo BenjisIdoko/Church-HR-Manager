@@ -541,11 +541,11 @@ export function ReportsAnalytics({ attendanceRecords, loading = false }: Reports
               </div>
             ) : (
               <div className="w-full h-[270px]">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={270}>
                   <BarChart data={departmentData} margin={{ top: 10, right: 10, left: -20, bottom: 25 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} fontSize={10} tick={{ fill: "#64748b" }} />
-                    <YAxis fontSize={10} tick={{ fill: "#64748b" }} />
+                    <YAxis allowDecimals={false} fontSize={10} tick={{ fill: "#64748b" }} />
                     <Tooltip
                       contentStyle={{ borderRadius: "12px", fontSize: "12px", borderColor: "#cbd5e1" }}
                       labelFormatter={(label) => {
@@ -588,11 +588,11 @@ export function ReportsAnalytics({ attendanceRecords, loading = false }: Reports
               </div>
             ) : (
               <div className="w-full h-[290px]">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={290}>
                   <BarChart data={weeklyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 25 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis dataKey="service" angle={-30} textAnchor="end" interval={0} fontSize={10} tick={{ fill: "#64748b" }} />
-                    <YAxis fontSize={10} tick={{ fill: "#64748b" }} />
+                    <YAxis allowDecimals={false} fontSize={10} tick={{ fill: "#64748b" }} />
                     <Tooltip contentStyle={{ borderRadius: "12px", fontSize: "12px", borderColor: "#cbd5e1" }} />
                     <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
                     <Bar dataKey="present" name="Present On-Time" fill="#10b981" stackId="a" radius={[0, 0, 0, 0]} />

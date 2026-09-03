@@ -1,5 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import { isRecordWithinGeofence } from "../utils/clockInRecordUtils.ts";
 
 // Helper function mirroring ProtectedRoute decision logic
 function evaluateProtectedRouteAccess({
@@ -117,4 +118,20 @@ test("Frontend ProtectedRoute & Geofence UI Logic", async (t) => {
     assert.equal(farResult.isWithin, false);
     assert.equal(farResult.maxAllowed, 250);
   });
+
+  await t.test("Clock-in record geofence-field normalization (real ClockInLogsTable logic)", () => {
+    // Exercises the actual isRecordWithinGeofence() helper shared by
+    // ClockInLogsTable's filter and row renderer, across every field-name
+    // variant seen from the live API vs. the localStorage fallback.
+    assert.equal(isRecordWithinGeofence({ distance_from_church: 45, is_within_geofence: 1 }), true);
+    assert.equal(isRecordWithinGeofence({ distance_from_church: 500, is_within_geofence: 0 }), false);
+    assert.equal(isRecordWithinGeofence({ isWithinGeofence: true }), true);
+    assert.equal(isRecordWithinGeofence({ isWithinGeofence: false }), false);
+    assert.equal(isRecordWithinGeofence({ withinGeofence: true }), true);
+    assert.equal(isRecordWithinGeofence({ within_geofence: 1 }), true);
+    assert.equal(isRecordWithinGeofence({}), false);
+    // is_within_geofence takes precedence over the other variants when present
+    assert.equal(isRecordWithinGeofence({ is_within_geofence: 0, isWithinGeofence: true }), false);
+  });
 });
+

@@ -334,7 +334,7 @@ export function VisitorManagement({ workers }: VisitorManagementProps) {
               <label className="text-xs font-semibold text-slate-700">Full Name *</label>
               <Input placeholder="e.g. John Doe" value={newName} onChange={(e) => setNewName(e.target.value)} required />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700">Phone Number *</label>
                 <Input placeholder="08012345678" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} required />
@@ -344,7 +344,7 @@ export function VisitorManagement({ workers }: VisitorManagementProps) {
                 <Input placeholder="john@example.com" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700">First Visit Date</label>
                 <DatePicker value={newDate} onChange={setNewDate} />
@@ -389,7 +389,7 @@ export function VisitorManagement({ workers }: VisitorManagementProps) {
             {/* Form to add followup log */}
             <form onSubmit={handleAddFollowup} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
               <p className="text-xs font-semibold text-slate-800">Log New Contact Activity</p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <select
                   value={followupMedium}
                   onChange={(e) => setFollowupMedium(e.target.value as any)}

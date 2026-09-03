@@ -24,6 +24,7 @@ import {
 } from "recharts";
 import { useNavigate } from "react-router-dom";
 import { AttendanceRecord, Worker } from "../types/models";
+import { parseLocalDate } from "../utils/dateUtils";
 
 interface AdminDashboardProps {
   workers: Worker[];
@@ -37,6 +38,46 @@ function getLatestAttendanceDate(attendanceRecords: AttendanceRecord[]) {
   return attendanceRecords.reduce((latest, record) => {
     return record.date > latest ? record.date : latest;
   }, "");
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    value: number;
+    dataKey: string;
+    color: string;
+    name?: string;
+  }>;
+  label?: string;
+}
+
+function ChartCustomTooltip({ active, payload, label }: CustomTooltipProps) {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white p-3 rounded-xl border border-[#e7e2d8] shadow-md text-xs space-y-2 min-w-[150px]">
+        <p className="font-bold text-[#1c1917] pb-1 border-b border-[#f4f1ea] flex items-center justify-between">
+          <span>{label}</span>
+          <span className="text-[10px] font-normal text-[#78716c]">Service Record</span>
+        </p>
+        {payload.map((entry, index) => {
+          const isPresent = entry.dataKey === "present";
+          return (
+            <div key={index} className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-1.5 text-[#78716c]">
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ backgroundColor: entry.color }}
+                />
+                {isPresent ? "Present On-Time / Late" : "Care Follow-up Needed"}
+              </span>
+              <span className="font-extrabold text-[#1c1917]">{entry.value}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+  return null;
 }
 
 export function AdminDashboard({
@@ -65,8 +106,10 @@ export function AdminDashboard({
     .slice(-7)
     .map((date) => {
       const recordsForDate = safeAttendanceRecords.filter((record) => record.date === date);
+      const formattedDate = parseLocalDate(date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
       return {
-        date: new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        date: formattedDate,
         present: recordsForDate.filter((record) => record.status === "present" || record.status === "late").length,
         absent: recordsForDate.filter((record) => record.status === "absent").length,
       };
@@ -127,11 +170,11 @@ export function AdminDashboard({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
           <Button
             onClick={() => navigate("/kiosk")}
             variant="outline"
-            className="border-[#e7e2d8] text-[#1c1917] hover:bg-[#f4f1ea] font-medium text-xs rounded-xl"
+            className="flex-1 sm:flex-initial border-[#e7e2d8] text-[#1c1917] hover:bg-[#f4f1ea] font-medium text-xs rounded-xl"
           >
             <QrCode className="h-4 w-4 mr-1.5 text-[#4f46e5]" />
             Launch Kiosk
@@ -139,7 +182,7 @@ export function AdminDashboard({
 
           <Button
             onClick={() => navigate("/import")}
-            className="bg-[#4f46e5] hover:bg-[#4338ca] text-white font-medium text-xs rounded-xl shadow-xs transition-all"
+            className="flex-1 sm:flex-initial bg-[#4f46e5] hover:bg-[#4338ca] text-white font-medium text-xs rounded-xl shadow-xs transition-all"
           >
             <Upload className="h-4 w-4 mr-1.5" />
             Import Roster CSV
@@ -209,56 +252,68 @@ export function AdminDashboard({
           </CardHeader>
 
           <CardContent className="pt-2">
-            <div className="h-[280px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorPresent" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.25} />
-                      <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.0} />
-                    </linearGradient>
-                    <linearGradient id="colorAbsent" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#dc2626" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#dc2626" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E7E2D8" opacity={0.6} />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fill: "#78716c", fontSize: 11 }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis tick={{ fill: "#78716c", fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#ffffff",
-                      borderColor: "#e7e2d8",
-                      borderRadius: "12px",
-                      color: "#1c1917",
-                      fontSize: "12px",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="present"
-                    stroke="#4f46e5"
-                    strokeWidth={2.5}
-                    fillOpacity={1}
-                    fill="url(#colorPresent)"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="absent"
-                    stroke="#dc2626"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorAbsent)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+            {trendData.length === 0 ? (
+              <div className="h-[280px] flex flex-col items-center justify-center text-center p-6 bg-[#fbf9f5] rounded-xl border border-dashed border-[#e7e2d8]">
+                <TrendingUp className="h-8 w-8 text-[#a8a29e] mb-2 opacity-60" />
+                <p className="text-sm font-semibold text-[#1c1917]">No Attendance History Yet</p>
+                <p className="text-xs text-[#78716c] mt-1 max-w-xs">
+                  Sync attendance records or check in members via the Kiosk to populate weekly trends.
+                </p>
+              </div>
+            ) : (
+              <div className="h-[280px] w-full">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={280}>
+                  <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorPresent" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.25} />
+                        <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.0} />
+                      </linearGradient>
+                      <linearGradient id="colorAbsent" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#dc2626" stopOpacity={0.15} />
+                        <stop offset="95%" stopColor="#dc2626" stopOpacity={0.0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E7E2D8" opacity={0.6} />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fill: "#78716c", fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      tick={{ fill: "#78716c", fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip content={<ChartCustomTooltip />} />
+                    <Area
+                      type="monotone"
+                      dataKey="present"
+                      name="present"
+                      stroke="#4f46e5"
+                      strokeWidth={2.5}
+                      fillOpacity={1}
+                      fill="url(#colorPresent)"
+                      dot={{ r: 4, strokeWidth: 2, fill: "#ffffff", stroke: "#4f46e5" }}
+                      activeDot={{ r: 6, strokeWidth: 2, fill: "#4f46e5", stroke: "#ffffff" }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="absent"
+                      name="absent"
+                      stroke="#dc2626"
+                      strokeWidth={2}
+                      fillOpacity={1}
+                      fill="url(#colorAbsent)"
+                      dot={{ r: 4, strokeWidth: 2, fill: "#ffffff", stroke: "#dc2626" }}
+                      activeDot={{ r: 6, strokeWidth: 2, fill: "#dc2626", stroke: "#ffffff" }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </CardContent>
         </Card>
 

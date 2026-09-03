@@ -6,6 +6,7 @@ import { ArrowLeft, Download, Calendar, CheckCircle2, Clock, XCircle, User, Awar
 import { AttendanceRecord, Worker } from "../types/models";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { exportToCSV } from "../utils/tableUtils";
+import { parseLocalDate } from "../utils/dateUtils";
 import { toast } from "sonner";
 
 interface AttendanceDetailViewProps {
@@ -63,7 +64,7 @@ export function AttendanceDetailView({
       "Worker Name": worker.name,
       "Department": worker.department,
       "Date": record.date,
-      "Day": new Date(record.date).toLocaleDateString("en-US", { weekday: "long" }),
+      "Day": parseLocalDate(record.date).toLocaleDateString("en-US", { weekday: "long" }),
       "Status": record.status.toUpperCase(),
     }));
 
@@ -189,11 +190,11 @@ export function AttendanceDetailView({
         </CardHeader>
         <CardContent className="p-4">
           <div className="w-full h-[220px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
               <BarChart data={summaryData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" fontSize={11} tick={{ fill: "#64748b" }} />
-                <YAxis fontSize={11} tick={{ fill: "#64748b" }} />
+                <YAxis allowDecimals={false} fontSize={11} tick={{ fill: "#64748b" }} />
                 <Tooltip contentStyle={{ borderRadius: "12px", fontSize: "12px", borderColor: "#cbd5e1" }} />
                 <Bar dataKey="value" name="Service Count" radius={[6, 6, 0, 0]}>
                   {summaryData.map((entry, index) => (
@@ -235,7 +236,7 @@ export function AttendanceDetailView({
                 </tr>
               ) : (
                 workerRecords.map((record, idx) => {
-                  const dateObj = new Date(record.date);
+                  const dateObj = parseLocalDate(record.date);
                   const dayName = dateObj.toLocaleDateString("en-US", { weekday: "long" });
 
                   return (
