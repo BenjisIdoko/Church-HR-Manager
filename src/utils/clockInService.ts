@@ -231,8 +231,17 @@ export function calculateHoursWorked(clockInTime: string, clockOutTime: string):
   return diffMs / (1000 * 60 * 60); // Convert to hours
 }
 
+export interface LocationWatchHandle {
+  stop: () => void;
+}
+
 /**
- * Check if worker is currently within geofence using continuous updates
+ * Check if worker is currently within geofence using continuous updates.
+ *
+ * The underlying GPS watch is paused while the page is hidden (tab
+ * backgrounded, screen locked) and resumed as soon as it's visible again, so
+ * a clock-in screen left open doesn't keep pulling high-accuracy GPS fixes
+ * when nobody is looking at it. Accuracy while visible is unaffected.
  */
 export function watchLocation(
   onLocationUpdate: (data: {
@@ -242,7 +251,7 @@ export function watchLocation(
   }) => void,
   onError: (error: string) => void,
   config?: GeofenceConfig
-): number | null {
+): LocationWatchHandle | null {
   if (!isAllowedGeolocationContext()) {
     onError(getGeolocationContextError());
     return null;
@@ -253,46 +262,71 @@ export function watchLocation(
     return null;
   }
 
-  const watchId = navigator.geolocation.watchPosition(
-    (position) => {
-      const location = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        accuracy: position.coords.accuracy,
-      };
-      const { isWithin, distance } = isWithinGeofence(location, config);
-      onLocationUpdate({ location, isWithinGeofence: isWithin, distance });
-    },
-    (error) => {
-      let message = "Unable to retrieve location";
-      switch (error.code) {
-        case error.PERMISSION_DENIED:
-          message = "Location permission denied";
-          break;
-        case error.POSITION_UNAVAILABLE:
-          message = "Location unavailable";
-          break;
-        case error.TIMEOUT:
-          message = "Location request timed out. Retrying...";
-          break;
-      }
-      onError(message);
-    },
-    {
-      enableHighAccuracy: true,
-      timeout: 12000,
-      maximumAge: 2000,
-    }
-  );
+  const watchOptions: PositionOptions = {
+    enableHighAccuracy: true,
+    timeout: 12000,
+    maximumAge: 2000,
+  };
 
-  return watchId;
+  const handlePosition = (position: GeolocationPosition) => {
+    const location = {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      accuracy: position.coords.accuracy,
+    };
+    const { isWithin, distance } = isWithinGeofence(location, config);
+    onLocationUpdate({ location, isWithinGeofence: isWithin, distance });
+  };
+
+  const handlePositionError = (error: GeolocationPositionError) => {
+    let message = "Unable to retrieve location";
+    switch (error.code) {
+      case error.PERMISSION_DENIED:
+        message = "Location permission denied";
+        break;
+      case error.POSITION_UNAVAILABLE:
+        message = "Location unavailable";
+        break;
+      case error.TIMEOUT:
+        message = "Location request timed out. Retrying...";
+        break;
+    }
+    onError(message);
+  };
+
+  let watchId: number | null = navigator.geolocation.watchPosition(handlePosition, handlePositionError, watchOptions);
+
+  const handleVisibilityChange = () => {
+    if (document.hidden) {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+    } else if (watchId === null) {
+      watchId = navigator.geolocation.watchPosition(handlePosition, handlePositionError, watchOptions);
+    }
+  };
+
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+  }
+
+  return {
+    stop: () => {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      }
+    },
+  };
 }
 
 /**
  * Stop watching location
  */
-export function stopWatchingLocation(watchId: number): void {
-  if (watchId !== null) {
-    navigator.geolocation.clearWatch(watchId);
-  }
+export function stopWatchingLocation(handle: LocationWatchHandle | null): void {
+  handle?.stop();
 }
