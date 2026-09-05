@@ -62,6 +62,18 @@ export class AuthError extends Error {
   }
 }
 
+// Thrown only when the request never reached a live backend (network
+// unreachable, DNS failure, static hosting with no API). Distinguishes
+// "truly offline" from a backend that was reached and explicitly
+// rejected the request - callers should only apply offline/local
+// fallbacks for this error, never for a real server-side rejection.
+export class NetworkUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NetworkUnavailableError";
+  }
+}
+
 let currentCsrfToken: string | null = null;
 
 function getCookie(name: string): string | null {
@@ -82,46 +94,53 @@ async function apiRequest<T>(input: string, init?: RequestInit): Promise<T> {
     }
   }
 
+  let response: Response;
   try {
-    const response = await fetch(url, {
+    response = await fetch(url, {
       credentials: "include",
       ...init,
       headers,
     });
-
-    const csrfHeader = response.headers.get("x-csrf-token");
-    if (csrfHeader) {
-      currentCsrfToken = csrfHeader;
-    }
-
-    const contentType = response.headers.get("content-type");
-
-    if (!response.ok) {
-      let message = "Request failed";
-      if (contentType && contentType.includes("application/json")) {
-        try {
-          const payload = (await response.json()) as ApiErrorPayload;
-          message = payload.message || payload.error || message;
-        } catch {
-          // ignore
-        }
-      }
-      if (response.status === 401) {
-        throw new AuthError(message);
-      }
-      throw new Error(message);
-    }
-
-    if (!contentType || !contentType.includes("application/json")) {
-      throw new Error(`Response from ${url} is not JSON`);
-    }
-
-    const payload = await response.json();
-    return payload as T;
   } catch (error) {
-    // Silent fallback to mock data when backend API is unavailable or static hosting serves HTML
-    throw error;
+    // fetch() itself threw: the backend was never reached (offline, DNS
+    // failure, CORS block). This is the only case callers should treat
+    // as "unavailable" and apply an offline/local fallback for.
+    throw new NetworkUnavailableError(error instanceof Error ? error.message : "Network request failed");
   }
+
+  const csrfHeader = response.headers.get("x-csrf-token");
+  if (csrfHeader) {
+    currentCsrfToken = csrfHeader;
+  }
+
+  const contentType = response.headers.get("content-type");
+
+  if (!response.ok) {
+    let message = "Request failed";
+    if (contentType && contentType.includes("application/json")) {
+      try {
+        const payload = (await response.json()) as ApiErrorPayload;
+        message = payload.message || payload.error || message;
+      } catch {
+        // ignore
+      }
+    }
+    if (response.status === 401) {
+      throw new AuthError(message);
+    }
+    // The backend was reached and explicitly rejected the request - a
+    // real error, not an "unavailable backend" condition.
+    throw new Error(message);
+  }
+
+  if (!contentType || !contentType.includes("application/json")) {
+    // A live backend never serves non-JSON from this API - this shape
+    // only happens when static hosting has no backend at all.
+    throw new NetworkUnavailableError(`Response from ${url} is not JSON`);
+  }
+
+  const payload = await response.json();
+  return payload as T;
 }
 
 export async function loginUser(identifier: string, password: string): Promise<User> {
@@ -446,7 +465,15 @@ export async function recordClockIn(data: ClockInRequest): Promise<ClockInRespon
       },
       body: JSON.stringify(data),
     });
-  } catch {
+  } catch (err) {
+    if (!(err instanceof NetworkUnavailableError)) {
+      // The backend was reached and explicitly rejected this clock-in
+      // (worker not found, out of range, portal disabled, etc.) - the
+      // record was never written server-side, so it must not be
+      // reported as a success.
+      throw err;
+    }
+
     return {
       ok: true,
       id,
