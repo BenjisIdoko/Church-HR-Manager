@@ -39,7 +39,7 @@ export function WorkerDirectoryFilters({
   };
 
   return (
-    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
       <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
         <div className="relative w-full sm:w-64">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
