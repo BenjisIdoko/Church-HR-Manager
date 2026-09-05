@@ -55,7 +55,10 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch initial clock status & settings
+  // Fetch clock status & settings - on mount, and again whenever the tab
+  // regains focus/visibility, so a phone browser left open across a
+  // settings change (e.g. the church's GPS location being corrected)
+  // doesn't keep showing a stale geofence distance indefinitely.
   useEffect(() => {
     const fetchStatus = async () => {
       try {
@@ -79,6 +82,19 @@ export function ClockInScreen({ user }: ClockInScreenProps) {
     };
 
     fetchStatus();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchStatus();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", fetchStatus);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", fetchStatus);
+    };
   }, [user.workerId]);
 
   // Start watching location
