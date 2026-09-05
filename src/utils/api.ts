@@ -222,7 +222,7 @@ export async function logoutUser(): Promise<void> {
 export async function fetchWorkers(): Promise<Worker[]> {
   try {
     const data = await apiRequest<Worker[]>("/api/workers");
-    if (Array.isArray(data) && data.length > 0) {
+    if (Array.isArray(data)) {
       localStorage.setItem("church_hr_workers", JSON.stringify(data));
       return data;
     }
@@ -234,7 +234,7 @@ export async function fetchWorkers(): Promise<Worker[]> {
   if (cached) {
     try {
       const parsed = JSON.parse(cached);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     } catch {
@@ -649,7 +649,7 @@ function saveStoredFollowups(followups: VisitorFollowup[]) {
 export async function fetchVisitors(): Promise<Visitor[]> {
   try {
     const data = await apiRequest<Visitor[]>("/api/visitors");
-    if (Array.isArray(data) && data.length > 0) {
+    if (Array.isArray(data)) {
       saveStoredVisitors(data);
       return data;
     }
@@ -1285,7 +1285,7 @@ let IN_MEMORY_SERVICE_ROSTERS: Record<number, ServiceRoster[]> = {
 export async function fetchServicePlans(): Promise<ServicePlan[]> {
   try {
     const data = await apiRequest<ServicePlan[]>("/api/service-plans");
-    if (Array.isArray(data) && data.length > 0) {
+    if (Array.isArray(data)) {
       return data;
     }
     return IN_MEMORY_SERVICE_PLANS;
@@ -1360,7 +1360,7 @@ export async function deleteServicePlan(id: number): Promise<{ ok: boolean }> {
 export async function fetchServiceItems(planId: number): Promise<ServiceItem[]> {
   try {
     const data = await apiRequest<ServiceItem[]>(`/api/service-plans/${planId}/items`);
-    if (Array.isArray(data) && data.length > 0) return data;
+    if (Array.isArray(data)) return data;
     return IN_MEMORY_SERVICE_ITEMS[planId] || [];
   } catch {
     return IN_MEMORY_SERVICE_ITEMS[planId] || [];
@@ -1440,7 +1440,7 @@ export async function deleteServiceItem(itemId: number): Promise<{ ok: boolean }
 export async function fetchServiceRoster(planId: number): Promise<ServiceRoster[]> {
   try {
     const data = await apiRequest<ServiceRoster[]>(`/api/service-plans/${planId}/roster`);
-    if (Array.isArray(data) && data.length > 0) return data;
+    if (Array.isArray(data)) return data;
     return IN_MEMORY_SERVICE_ROSTERS[planId] || [];
   } catch {
     return IN_MEMORY_SERVICE_ROSTERS[planId] || [];

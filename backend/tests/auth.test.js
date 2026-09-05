@@ -1,26 +1,27 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const path = require('path');
-const fs = require('fs');
 
-// Use an isolated test database
-const testDbPath = path.join(__dirname, 'test_auth.db');
-if (fs.existsSync(testDbPath)) {
-  fs.unlinkSync(testDbPath);
+// Use an isolated Turso test database - never the production one. Point
+// TURSO_TEST_DATABASE_URL / TURSO_TEST_AUTH_TOKEN at a dedicated test
+// database (see backend/.env.example) before running `npm test`.
+if (!process.env.TURSO_TEST_DATABASE_URL || !process.env.TURSO_TEST_AUTH_TOKEN) {
+  console.error(
+    'TURSO_TEST_DATABASE_URL and TURSO_TEST_AUTH_TOKEN must be set to run backend tests ' +
+    '(create a dedicated test database with the Turso CLI - see backend/.env.example).'
+  );
+  process.exit(1);
 }
-process.env.DB_PATH = testDbPath;
+process.env.TURSO_DATABASE_URL = process.env.TURSO_TEST_DATABASE_URL;
+process.env.TURSO_AUTH_TOKEN = process.env.TURSO_TEST_AUTH_TOKEN;
 process.env.JWT_SECRET = 'test-jwt-secret';
+process.env.NODE_ENV = 'test';
 
-const { statements } = require('../database');
+const { statements, ensureReady } = require('../database');
 const bcrypt = require('bcryptjs');
 
 // Seed test users
 const testPassword = 'SecurePassword123!';
 const hashedPassword = bcrypt.hashSync(testPassword, 10);
-
-statements.insertUser.run('Test Admin', 'admin@test.com', hashedPassword, 'superadmin', 'W000');
-statements.insertUser.run('Test Manager', 'manager@test.com', hashedPassword, 'manager', 'W002');
-statements.insertUser.run('Test Member', 'member@test.com', hashedPassword, 'member', 'W001');
 
 // Import Express server app
 const http = require('http');
@@ -30,6 +31,11 @@ test('Authentication Flow and Security Hardening', async (t) => {
   let baseUrl;
 
   t.before(async () => {
+    await ensureReady();
+    await statements.insertUser.run('Test Admin', 'admin@test.com', hashedPassword, 'superadmin', 'W000');
+    await statements.insertUser.run('Test Manager', 'manager@test.com', hashedPassword, 'manager', 'W002');
+    await statements.insertUser.run('Test Member', 'member@test.com', hashedPassword, 'member', 'W001');
+
     delete require.cache[require.resolve('../server')];
     const serverApp = require('../server');
     await new Promise((resolve) => {
@@ -56,9 +62,6 @@ test('Authentication Flow and Security Hardening', async (t) => {
   t.after(async () => {
     if (server) {
       await new Promise((resolve) => server.close(resolve));
-    }
-    if (fs.existsSync(testDbPath)) {
-      try { fs.unlinkSync(testDbPath); } catch {}
     }
   });
 

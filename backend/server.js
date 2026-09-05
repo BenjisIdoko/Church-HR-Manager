@@ -9,7 +9,7 @@ const jwt = require('jsonwebtoken')
 const cookieParser = require('cookie-parser')
 const helmet = require('helmet')
 const rateLimit = require('express-rate-limit')
-const { statements } = require('./database')
+const { statements, ensureReady } = require('./database')
 
 const app = express()
 const JWT_SECRET = process.env.JWT_SECRET || 'church-hr-dev-secret-key-change-in-prod'
@@ -52,6 +52,17 @@ app.use(cors({
 app.use(express.json())
 app.use(cookieParser())
 
+// Ensure the database schema/migrations have run before handling any request
+app.use(async (req, res, next) => {
+  try {
+    await ensureReady()
+    next()
+  } catch (error) {
+    console.error('Database initialization failed:', error)
+    res.status(503).json({ ok: false, message: 'Database unavailable' })
+  }
+})
+
 // Normalize request body keys from snake_case to camelCase
 function snakeToCamel(str) {
   return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())
@@ -84,7 +95,7 @@ app.use(normalizeRequestBody)
 // Rate Limiting
 const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'test' || process.env.DB_PATH ? 1000 : 30,
+  max: process.env.NODE_ENV === 'test' ? 1000 : 30,
   standardHeaders: true,
   legacyHeaders: false,
   message: { ok: false, message: 'Too many login attempts. Please try again in 15 minutes.' },
@@ -235,13 +246,13 @@ const upload = multer({
 app.use('/', express.static(path.join(__dirname, '../build')))
 
 // Helper function to update KPIs
-function updateKPIs() {
+async function updateKPIs() {
   try {
-    const workerCount = statements.getWorkerCount.get('Active').count;
+    const workerCount = (await statements.getWorkerCount.get('Active')).count;
     const today = new Date().toISOString().split('T')[0];
-    const todayStats = statements.getAttendanceStats.get(today);
+    const todayStats = await statements.getAttendanceStats.get(today);
 
-    statements.updateKPIs.run(
+    await statements.updateKPIs.run(
       workerCount,
       todayStats.present,
       todayStats.absent
@@ -337,13 +348,13 @@ function toStoredWorkerStatus(status) {
   return normalizeWorkerStatus(status) === 'active' ? 'Active' : 'Inactive';
 }
 
-function findOrCreateWorker(externalId, name, dept) {
-  const existing = externalId ? statements.getWorkerByExternalId.get(externalId) : null;
+async function findOrCreateWorker(externalId, name, dept) {
+  const existing = externalId ? await statements.getWorkerByExternalId.get(externalId) : null;
   if (existing) {
     return existing.id;
   }
 
-  const result = statements.insertWorker.run(
+  const result = await statements.insertWorker.run(
     externalId,
     name || 'Unknown',
     null,
@@ -355,32 +366,32 @@ function findOrCreateWorker(externalId, name, dept) {
   return result.lastInsertRowid;
 }
 
-function resolveWorkerDbId(input) {
+async function resolveWorkerDbId(input) {
   if (input === undefined || input === null || input === "") return null;
   const str = String(input).trim();
   if (!str) return null;
 
   if (/^\d+$/.test(str)) {
-    const workerById = statements.getWorkerById.get(Number(str));
+    const workerById = await statements.getWorkerById.get(Number(str));
     if (workerById) return workerById.id;
   }
 
-  const workerByExt = statements.getWorkerByExternalId.get(str);
+  const workerByExt = await statements.getWorkerByExternalId.get(str);
   if (workerByExt) return workerByExt.id;
 
   const matchDigits = str.match(/\d+/);
   if (matchDigits) {
     const num = Number(matchDigits[0]);
-    const workerById = statements.getWorkerById.get(num);
+    const workerById = await statements.getWorkerById.get(num);
     if (workerById) return workerById.id;
   }
 
   return null;
 }
 
-function getSettingValue(key, fallback = null) {
+async function getSettingValue(key, fallback = null) {
   try {
-    const row = statements.getSetting.get(key);
+    const row = await statements.getSetting.get(key);
     if (!row || row.value === undefined || row.value === null) {
       return fallback;
     }
@@ -391,8 +402,8 @@ function getSettingValue(key, fallback = null) {
   }
 }
 
-function getAllSettingsObject() {
-  const rows = statements.getAllSettings.all();
+async function getAllSettingsObject() {
+  const rows = await statements.getAllSettings.all();
   return rows.reduce((acc, row) => {
     acc[row.key] = row.value;
     return acc;
@@ -464,14 +475,14 @@ function calculateDistanceMeters(pointA, pointB) {
   return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
 }
 
-function getClockInConfig() {
-  const latitude = toNumber(getSettingValue('church_latitude', DEFAULT_CHURCH_LOCATION.latitude), DEFAULT_CHURCH_LOCATION.latitude);
-  const longitude = toNumber(getSettingValue('church_longitude', DEFAULT_CHURCH_LOCATION.longitude), DEFAULT_CHURCH_LOCATION.longitude);
-  const radiusMeters = toNumber(getSettingValue('geofence_radius_meters', DEFAULT_GEOFENCE_RADIUS_METERS), DEFAULT_GEOFENCE_RADIUS_METERS);
-  const toleranceMeters = toNumber(getSettingValue('geofence_tolerance_meters', DEFAULT_GEOFENCE_TOLERANCE_METERS), DEFAULT_GEOFENCE_TOLERANCE_METERS);
+async function getClockInConfig() {
+  const latitude = toNumber(await getSettingValue('church_latitude', DEFAULT_CHURCH_LOCATION.latitude), DEFAULT_CHURCH_LOCATION.latitude);
+  const longitude = toNumber(await getSettingValue('church_longitude', DEFAULT_CHURCH_LOCATION.longitude), DEFAULT_CHURCH_LOCATION.longitude);
+  const radiusMeters = toNumber(await getSettingValue('geofence_radius_meters', DEFAULT_GEOFENCE_RADIUS_METERS), DEFAULT_GEOFENCE_RADIUS_METERS);
+  const toleranceMeters = toNumber(await getSettingValue('geofence_tolerance_meters', DEFAULT_GEOFENCE_TOLERANCE_METERS), DEFAULT_GEOFENCE_TOLERANCE_METERS);
 
   return {
-    enabled: getSettingValue('clock_in_portal_enabled', 'true') === 'true',
+    enabled: (await getSettingValue('clock_in_portal_enabled', 'true')) === 'true',
     churchLocation: {
       latitude: isValidLatitude(latitude) ? latitude : DEFAULT_CHURCH_LOCATION.latitude,
       longitude: isValidLongitude(longitude) ? longitude : DEFAULT_CHURCH_LOCATION.longitude,
@@ -481,7 +492,7 @@ function getClockInConfig() {
   };
 }
 
-function importWorkers(records) {
+async function importWorkers(records) {
   for (const record of records) {
     const externalId = String(record['Worker ID'] || '').trim();
     const name = String(record['Name'] || '').trim() || 'Unknown';
@@ -491,16 +502,16 @@ function importWorkers(records) {
     const role = String(record['Role'] || '').trim() || 'Volunteer';
     const status = String(record['Status'] || 'Active').trim() || 'Active';
 
-    const existing = statements.getWorkerByExternalId.get(externalId);
+    const existing = await statements.getWorkerByExternalId.get(externalId);
     if (existing) {
-      statements.updateWorker.run(name, email, phone, dept, role, status, existing.id);
+      await statements.updateWorker.run(name, email, phone, dept, role, status, existing.id);
     } else {
-      statements.insertWorker.run(externalId, name, email, phone, dept, role, status);
+      await statements.insertWorker.run(externalId, name, email, phone, dept, role, status);
     }
   }
 }
 
-function importAttendance(records) {
+async function importAttendance(records) {
   for (const record of records) {
     const externalId = String(record['Worker ID'] || '').trim();
     const name = String(record['Worker Name'] || '').trim() || 'Unknown';
@@ -509,13 +520,13 @@ function importAttendance(records) {
     const status = normalizeStatus(record['Status']);
     const date = String(record['Date'] || '').trim();
 
-    const workerId = findOrCreateWorker(externalId, name, dept);
-    statements.insertAttendance.run(workerId, service, status, date);
+    const workerId = await findOrCreateWorker(externalId, name, dept);
+    await statements.insertAttendance.run(workerId, service, status, date);
   }
 }
 
 // Authentication Endpoints
-app.post('/api/login', loginRateLimiter, (req, res) => {
+app.post('/api/login', loginRateLimiter, async (req, res) => {
   const { identifier, username, email, password } = req.body || {};
   const loginIdentifier = String(identifier || username || email || '').trim().toLowerCase();
 
@@ -527,13 +538,13 @@ app.post('/api/login', loginRateLimiter, (req, res) => {
   }
 
   let user = statements.getUserByIdentifier
-    ? statements.getUserByIdentifier.get(loginIdentifier, loginIdentifier)
-    : statements.getUserByEmail.get(loginIdentifier);
+    ? await statements.getUserByIdentifier.get(loginIdentifier, loginIdentifier)
+    : await statements.getUserByEmail.get(loginIdentifier);
 
   if (!user && (loginIdentifier === 'admin' || loginIdentifier === 'superadmin')) {
-    user = statements.getUserByEmail.get('admin@church.com');
+    user = await statements.getUserByEmail.get('admin@church.com');
   } else if (!user && loginIdentifier === 'manager') {
-    user = statements.getUserByEmail.get('manager@church.com');
+    user = await statements.getUserByEmail.get('manager@church.com');
   }
 
   if (!user) {
@@ -566,8 +577,8 @@ app.post('/api/login', loginRateLimiter, (req, res) => {
   return res.json({ ok: true, user: safeUser, csrfToken });
 });
 
-app.get('/api/me', authenticateToken, (req, res) => {
-  const dbUser = statements.getUserById.get(req.user.id);
+app.get('/api/me', authenticateToken, async (req, res) => {
+  const dbUser = await statements.getUserById.get(req.user.id);
   if (!dbUser) {
     return res.status(401).json({ ok: false, message: 'User not found' });
   }
@@ -588,10 +599,10 @@ app.post('/api/logout', (req, res) => {
   res.json({ ok: true, message: 'Logged out successfully' });
 });
 
-app.get('/api/kpis', authenticateToken, requireRole('member'), (req, res) => {
+app.get('/api/kpis', authenticateToken, requireRole('member'), async (req, res) => {
   try {
-    updateKPIs(); // Update KPIs before returning
-    const kpis = statements.getKPIs.get();
+    await updateKPIs(); // Update KPIs before returning
+    const kpis = await statements.getKPIs.get();
     res.json({
       totalWorkers: kpis.total_workers,
       attendanceToday: kpis.attendance_today,
@@ -604,9 +615,9 @@ app.get('/api/kpis', authenticateToken, requireRole('member'), (req, res) => {
   }
 })
 
-app.get('/api/workers', authenticateToken, requireRole('member'), (req, res) => {
+app.get('/api/workers', authenticateToken, requireRole('member'), async (req, res) => {
   try {
-    const workers = statements.getAllWorkers.all();
+    const workers = await statements.getAllWorkers.all();
     res.json(workers.map(formatWorker));
   } catch (error) {
     console.error('Error fetching workers:', error);
@@ -614,7 +625,7 @@ app.get('/api/workers', authenticateToken, requireRole('member'), (req, res) => 
   }
 })
 
-app.put('/api/workers/:workerId', authenticateToken, requireRole('manager'), (req, res) => {
+app.put('/api/workers/:workerId', authenticateToken, requireRole('manager'), async (req, res) => {
   const { workerId } = req.params;
   const { name, email, phone, department, role, status, profileImage } = req.body || {};
 
@@ -623,12 +634,12 @@ app.put('/api/workers/:workerId', authenticateToken, requireRole('manager'), (re
   }
 
   try {
-    const existing = statements.getWorkerByExternalId.get(workerId);
+    const existing = await statements.getWorkerByExternalId.get(workerId);
     if (!existing) {
       return res.status(404).json({ ok: false, message: 'Worker not found.' });
     }
 
-    statements.updateWorker.run(
+    await statements.updateWorker.run(
       String(name).trim(),
       String(email || '').trim() || null,
       String(phone || '').trim() || null,
@@ -639,7 +650,7 @@ app.put('/api/workers/:workerId', authenticateToken, requireRole('manager'), (re
       existing.id,
     );
 
-    const updated = statements.getWorkerByExternalId.get(workerId);
+    const updated = await statements.getWorkerByExternalId.get(workerId);
     res.json({ ok: true, worker: formatWorker(updated) });
   } catch (error) {
     console.error('Error updating worker:', error);
@@ -647,7 +658,7 @@ app.put('/api/workers/:workerId', authenticateToken, requireRole('manager'), (re
   }
 })
 
-app.put('/api/departments/rename', authenticateToken, requireRole('superadmin'), (req, res) => {
+app.put('/api/departments/rename', authenticateToken, requireRole('superadmin'), async (req, res) => {
   const { oldDepartment, newDepartment } = req.body || {};
 
   if (!oldDepartment || !newDepartment) {
@@ -657,7 +668,7 @@ app.put('/api/departments/rename', authenticateToken, requireRole('superadmin'),
   try {
     const oldNorm = String(oldDepartment).trim();
     const newNorm = String(newDepartment).trim();
-    const result = statements.renameDepartment.run(newNorm, oldNorm);
+    const result = await statements.renameDepartment.run(newNorm, oldNorm);
     res.json({ ok: true, changes: result.changes });
   } catch (error) {
     console.error('Error renaming department:', error);
@@ -674,10 +685,11 @@ app.post('/api/upload-profile-image', authenticateToken, requireRole('member'), 
   res.json({ ok: true, imageUrl });
 })
 
-app.get('/api/attendance', authenticateToken, requireRole('member'), (req, res) => {
+app.get('/api/attendance', authenticateToken, requireRole('member'), async (req, res) => {
   try {
     const { date, startDate, endDate, department, workerId } = req.query;
-    const attendance = collapseAttendanceRecords(statements.getAllAttendance.all().map(formatAttendance));
+    const allAttendance = await statements.getAllAttendance.all();
+    const attendance = collapseAttendanceRecords(allAttendance.map(formatAttendance));
 
     const filtered = attendance.filter((record) => {
       if (date && record.date !== date) return false;
@@ -695,8 +707,8 @@ app.get('/api/attendance', authenticateToken, requireRole('member'), (req, res) 
   }
 })
 
-// Import endpoint that persists validated attendance or worker records into SQLite
-app.post('/api/import', authenticateToken, requireRole('manager'), (req, res) => {
+// Import endpoint that persists validated attendance or worker records into the database
+app.post('/api/import', authenticateToken, requireRole('manager'), async (req, res) => {
   const { type, records } = req.body || {};
 
   if (!type || !Array.isArray(records)) {
@@ -705,15 +717,15 @@ app.post('/api/import', authenticateToken, requireRole('manager'), (req, res) =>
 
   try {
     if (type === 'workers') {
-      importWorkers(records);
+      await importWorkers(records);
     } else if (type === 'attendance') {
-      importAttendance(records);
+      await importAttendance(records);
     } else {
       return res.status(400).json({ ok: false, message: 'Unsupported import type' });
     }
 
-    updateKPIs();
-    const kpis = statements.getKPIs.get();
+    await updateKPIs();
+    const kpis = await statements.getKPIs.get();
 
     return res.json({
       ok: true,
@@ -732,7 +744,7 @@ app.post('/api/import', authenticateToken, requireRole('manager'), (req, res) =>
 })
 
 // Absence notification endpoint
-app.post('/api/absence', authenticateToken, requireRole('member'), (req, res) => {
+app.post('/api/absence', authenticateToken, requireRole('member'), async (req, res) => {
   const { name, department, reason, otherReason, dateFrom, dateTo, message } = req.body || {};
 
   if (!name || !department || !reason || !dateFrom) {
@@ -741,9 +753,9 @@ app.post('/api/absence', authenticateToken, requireRole('member'), (req, res) =>
 
   try {
     // Find or create worker
-    const workerId = findOrCreateWorker(null, name, department);
+    const workerId = await findOrCreateWorker(null, name, department);
 
-    const result = statements.insertAbsence.run(
+    const result = await statements.insertAbsence.run(
       workerId,
       name,
       department,
@@ -767,9 +779,9 @@ app.post('/api/absence', authenticateToken, requireRole('member'), (req, res) =>
 })
 
 // Get all absences
-app.get('/api/absences', authenticateToken, requireRole('manager'), (req, res) => {
+app.get('/api/absences', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
-    const absences = statements.getAllAbsences.all();
+    const absences = await statements.getAllAbsences.all();
     res.json(absences);
   } catch (error) {
     console.error('Error fetching absences:', error);
@@ -778,7 +790,7 @@ app.get('/api/absences', authenticateToken, requireRole('manager'), (req, res) =
 })
 
 // Clock-In System Endpoints
-app.post('/api/clock-in', (req, res) => {
+app.post('/api/clock-in', async (req, res) => {
   const { workerId, type, latitude, longitude, notes } = req.body || {};
 
   // Validate required fields
@@ -798,7 +810,7 @@ app.post('/api/clock-in', (req, res) => {
   }
 
   try {
-    const config = getClockInConfig();
+    const config = await getClockInConfig();
     if (!config.enabled) {
       return res.status(403).json({ ok: false, message: 'Clock-in portal is currently disabled' });
     }
@@ -820,13 +832,13 @@ app.post('/api/clock-in', (req, res) => {
     }
 
     // Find worker
-    const worker = statements.getWorkerByExternalId.get(workerId);
+    const worker = await statements.getWorkerByExternalId.get(workerId);
     if (!worker) {
       return res.status(404).json({ ok: false, message: 'Worker not found' });
     }
 
     // Insert clock-in record
-    const result = statements.insertClockIn.run(
+    const result = await statements.insertClockIn.run(
       worker.id,
       new Date().toISOString(),
       type,
@@ -860,7 +872,7 @@ app.post('/api/clock-in', (req, res) => {
 });
 
 // Get clock-in records for a specific date
-app.get('/api/clock-in/date/:date', authenticateToken, requireRole('manager'), (req, res) => {
+app.get('/api/clock-in/date/:date', authenticateToken, requireRole('manager'), async (req, res) => {
   const { date } = req.params;
 
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -868,7 +880,7 @@ app.get('/api/clock-in/date/:date', authenticateToken, requireRole('manager'), (
   }
 
   try {
-    const records = statements.getClockInsByDate.all(date);
+    const records = await statements.getClockInsByDate.all(date);
     res.json(records || []);
   } catch (error) {
     console.error('Error fetching clock-in records:', error);
@@ -877,16 +889,16 @@ app.get('/api/clock-in/date/:date', authenticateToken, requireRole('manager'), (
 });
 
 // Get worker's today clock-in status
-app.get('/api/clock-in/status/:workerId', authenticateToken, requireRole('member'), (req, res) => {
+app.get('/api/clock-in/status/:workerId', authenticateToken, requireRole('member'), async (req, res) => {
   const { workerId } = req.params;
 
   try {
-    const worker = statements.getWorkerByExternalId.get(workerId);
+    const worker = await statements.getWorkerByExternalId.get(workerId);
     if (!worker) {
       return res.status(404).json({ ok: false, message: 'Worker not found' });
     }
 
-    const records = statements.getWorkerTodayClockIns.all(worker.id) || [];
+    const records = (await statements.getWorkerTodayClockIns.all(worker.id)) || [];
     const isClockedIn = records.length % 2 === 1; // Odd number means currently clocked in
     const lastRecord = records.length > 0 ? records[records.length - 1] : null;
 
@@ -903,9 +915,9 @@ app.get('/api/clock-in/status/:workerId', authenticateToken, requireRole('member
   }
 });
 
-app.get('/api/clock-in/settings', authenticateToken, requireRole('member'), (req, res) => {
+app.get('/api/clock-in/settings', authenticateToken, requireRole('member'), async (req, res) => {
   try {
-    const settings = getAllSettingsObject();
+    const settings = await getAllSettingsObject();
     res.json({ ok: true, settings });
   } catch (error) {
     console.error('Error fetching clock-in settings:', error);
@@ -913,7 +925,7 @@ app.get('/api/clock-in/settings', authenticateToken, requireRole('member'), (req
   }
 });
 
-app.put('/api/clock-in/settings', authenticateToken, requireRole('superadmin'), (req, res) => {
+app.put('/api/clock-in/settings', authenticateToken, requireRole('superadmin'), async (req, res) => {
   const allowedKeys = [
     'clock_in_portal_enabled',
     'clock_in_portal_name',
@@ -940,11 +952,11 @@ app.put('/api/clock-in/settings', authenticateToken, requireRole('superadmin'), 
           return res.status(400).json({ ok: false, message: validationError });
         }
 
-        statements.upsertSetting.run(key, value);
+        await statements.upsertSetting.run(key, value);
       }
     }
 
-    const settings = getAllSettingsObject();
+    const settings = await getAllSettingsObject();
     res.json({ ok: true, settings, message: 'Clock-in settings updated successfully' });
   } catch (error) {
     console.error('Error updating clock-in settings:', error);
@@ -953,7 +965,7 @@ app.put('/api/clock-in/settings', authenticateToken, requireRole('superadmin'), 
 });
 
 // Import clock-in data from traditional device (CSV format)
-app.post('/api/clock-in/import-device', authenticateToken, requireRole('superadmin'), (req, res) => {
+app.post('/api/clock-in/import-device', authenticateToken, requireRole('superadmin'), async (req, res) => {
   const { records } = req.body || {};
 
   if (!Array.isArray(records) || records.length === 0) {
@@ -962,7 +974,7 @@ app.post('/api/clock-in/import-device', authenticateToken, requireRole('superadm
 
   try {
     let importedCount = 0;
-    const { churchLocation } = getClockInConfig();
+    const { churchLocation } = await getClockInConfig();
 
     for (const record of records) {
       const { workerId, timestamp, type, deviceId } = record;
@@ -971,10 +983,10 @@ app.post('/api/clock-in/import-device', authenticateToken, requireRole('superadm
       if (!workerId || !timestamp || !type) continue;
 
       try {
-        const worker = statements.getWorkerByExternalId.get(workerId);
+        const worker = await statements.getWorkerByExternalId.get(workerId);
         if (!worker) continue;
 
-        statements.insertClockIn.run(
+        await statements.insertClockIn.run(
           worker.id,
           timestamp,
           type,
@@ -1006,10 +1018,10 @@ app.post('/api/clock-in/import-device', authenticateToken, requireRole('superadm
 });
 
 // Simple search and filter endpoints
-app.get('/api/workers/search', authenticateToken, requireRole('member'), (req, res) => {
+app.get('/api/workers/search', authenticateToken, requireRole('member'), async (req, res) => {
   try {
     const q = (req.query.q || '').toLowerCase()
-    const allWorkers = statements.getAllWorkers.all();
+    const allWorkers = await statements.getAllWorkers.all();
     const results = allWorkers.filter(w =>
       w.name.toLowerCase().includes(q) ||
       w.dept.toLowerCase().includes(q) ||
@@ -1023,9 +1035,9 @@ app.get('/api/workers/search', authenticateToken, requireRole('member'), (req, r
 })
 
 // Visitor & Follow-Up Endpoints
-app.get('/api/visitors', authenticateToken, requireRole('manager'), (req, res) => {
+app.get('/api/visitors', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
-    const visitors = statements.getAllVisitors.all();
+    const visitors = await statements.getAllVisitors.all();
     res.json(visitors);
   } catch (error) {
     console.error('Error fetching visitors:', error);
@@ -1033,13 +1045,13 @@ app.get('/api/visitors', authenticateToken, requireRole('manager'), (req, res) =
   }
 });
 
-app.post('/api/visitors', authenticateToken, requireRole('manager'), (req, res) => {
+app.post('/api/visitors', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
     const { name, email, phone, firstVisitDate, assignedTo, status, notes } = req.body;
     if (!name || !phone) {
       return res.status(400).json({ error: 'Name and Phone are required' });
     }
-    const result = statements.insertVisitor.run(
+    const result = await statements.insertVisitor.run(
       name,
       email || null,
       phone,
@@ -1055,10 +1067,10 @@ app.post('/api/visitors', authenticateToken, requireRole('manager'), (req, res) 
   }
 });
 
-app.put('/api/visitors/:id', authenticateToken, requireRole('manager'), (req, res) => {
+app.put('/api/visitors/:id', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
     const { status, assignedTo, notes } = req.body;
-    statements.updateVisitorStatus.run(
+    await statements.updateVisitorStatus.run(
       status,
       assignedTo ? Number(assignedTo) : null,
       notes || null,
@@ -1071,9 +1083,9 @@ app.put('/api/visitors/:id', authenticateToken, requireRole('manager'), (req, re
   }
 });
 
-app.delete('/api/visitors/:id', authenticateToken, requireRole('manager'), (req, res) => {
+app.delete('/api/visitors/:id', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
-    statements.deleteVisitor.run(req.params.id);
+    await statements.deleteVisitor.run(req.params.id);
     res.json({ ok: true });
   } catch (error) {
     console.error('Error deleting visitor:', error);
@@ -1081,9 +1093,9 @@ app.delete('/api/visitors/:id', authenticateToken, requireRole('manager'), (req,
   }
 });
 
-app.get('/api/visitors/:id/followups', authenticateToken, requireRole('manager'), (req, res) => {
+app.get('/api/visitors/:id/followups', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
-    const followups = statements.getVisitorFollowups.all(req.params.id);
+    const followups = await statements.getVisitorFollowups.all(req.params.id);
     res.json(followups);
   } catch (error) {
     console.error('Error fetching followups:', error);
@@ -1091,10 +1103,10 @@ app.get('/api/visitors/:id/followups', authenticateToken, requireRole('manager')
   }
 });
 
-app.post('/api/visitors/:id/followups', authenticateToken, requireRole('manager'), (req, res) => {
+app.post('/api/visitors/:id/followups', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
     const { callerId, date, medium, feedback } = req.body;
-    statements.insertVisitorFollowup.run(
+    await statements.insertVisitorFollowup.run(
       req.params.id,
       callerId ? Number(callerId) : null,
       date || new Date().toISOString().split('T')[0],
@@ -1109,9 +1121,9 @@ app.post('/api/visitors/:id/followups', authenticateToken, requireRole('manager'
 });
 
 // Cell Group Endpoints
-app.get('/api/groups', authenticateToken, requireRole('member'), (req, res) => {
+app.get('/api/groups', authenticateToken, requireRole('member'), async (req, res) => {
   try {
-    const groups = statements.getAllCellGroups.all();
+    const groups = await statements.getAllCellGroups.all();
     res.json(groups);
   } catch (error) {
     console.error('Error fetching cell groups:', error);
@@ -1119,12 +1131,12 @@ app.get('/api/groups', authenticateToken, requireRole('member'), (req, res) => {
   }
 });
 
-app.post('/api/groups', authenticateToken, requireRole('manager'), (req, res) => {
+app.post('/api/groups', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
     const { name, type, leaderId, meetingDay, location } = req.body || {};
-    const resolvedLeaderId = resolveWorkerDbId(leaderId);
+    const resolvedLeaderId = await resolveWorkerDbId(leaderId);
 
-    const result = statements.insertCellGroup.run(
+    const result = await statements.insertCellGroup.run(
       name,
       type || 'cell',
       resolvedLeaderId,
@@ -1138,12 +1150,12 @@ app.post('/api/groups', authenticateToken, requireRole('manager'), (req, res) =>
   }
 });
 
-app.put('/api/groups/:id', authenticateToken, requireRole('manager'), (req, res) => {
+app.put('/api/groups/:id', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
     const { name, type, leaderId, meetingDay, location } = req.body || {};
-    const resolvedLeaderId = resolveWorkerDbId(leaderId);
+    const resolvedLeaderId = await resolveWorkerDbId(leaderId);
 
-    statements.updateCellGroup.run(
+    await statements.updateCellGroup.run(
       name,
       type || 'cell',
       resolvedLeaderId,
@@ -1158,9 +1170,9 @@ app.put('/api/groups/:id', authenticateToken, requireRole('manager'), (req, res)
   }
 });
 
-app.delete('/api/groups/:id', authenticateToken, requireRole('manager'), (req, res) => {
+app.delete('/api/groups/:id', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
-    statements.deleteCellGroup.run(req.params.id);
+    await statements.deleteCellGroup.run(req.params.id);
     res.json({ ok: true });
   } catch (error) {
     console.error('Error deleting cell group:', error);
@@ -1168,9 +1180,9 @@ app.delete('/api/groups/:id', authenticateToken, requireRole('manager'), (req, r
   }
 });
 
-app.get('/api/groups/:id/members', authenticateToken, requireRole('member'), (req, res) => {
+app.get('/api/groups/:id/members', authenticateToken, requireRole('member'), async (req, res) => {
   try {
-    const members = statements.getGroupMembers.all(req.params.id);
+    const members = await statements.getGroupMembers.all(req.params.id);
     res.json(members);
   } catch (error) {
     console.error('Error fetching group members:', error);
@@ -1178,16 +1190,16 @@ app.get('/api/groups/:id/members', authenticateToken, requireRole('member'), (re
   }
 });
 
-app.post('/api/groups/:id/members', authenticateToken, requireRole('manager'), (req, res) => {
+app.post('/api/groups/:id/members', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
     const { workerId, role } = req.body || {};
-    const resolvedWorkerId = resolveWorkerDbId(workerId);
+    const resolvedWorkerId = await resolveWorkerDbId(workerId);
 
     if (!resolvedWorkerId) {
       return res.status(400).json({ error: 'Invalid or missing worker ID' });
     }
 
-    statements.addGroupMember.run(req.params.id, resolvedWorkerId, role || 'member');
+    await statements.addGroupMember.run(req.params.id, resolvedWorkerId, role || 'member');
     res.json({ ok: true });
   } catch (error) {
     console.error('Error adding group member:', error);
@@ -1195,10 +1207,10 @@ app.post('/api/groups/:id/members', authenticateToken, requireRole('manager'), (
   }
 });
 
-app.delete('/api/groups/:id/members/:workerId', authenticateToken, requireRole('manager'), (req, res) => {
+app.delete('/api/groups/:id/members/:workerId', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
-    const resolvedWorkerId = resolveWorkerDbId(req.params.workerId) || req.params.workerId;
-    statements.removeGroupMember.run(req.params.id, resolvedWorkerId);
+    const resolvedWorkerId = (await resolveWorkerDbId(req.params.workerId)) || req.params.workerId;
+    await statements.removeGroupMember.run(req.params.id, resolvedWorkerId);
     res.json({ ok: true });
   } catch (error) {
     console.error('Error removing group member:', error);
@@ -1207,9 +1219,9 @@ app.delete('/api/groups/:id/members/:workerId', authenticateToken, requireRole('
 });
 
 // Asset Management Endpoints
-app.get('/api/assets', authenticateToken, requireRole('manager'), (req, res) => {
+app.get('/api/assets', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
-    const assets = statements.getAllAssets.all();
+    const assets = await statements.getAllAssets.all();
     res.json(assets);
   } catch (error) {
     console.error('Error fetching assets:', error);
@@ -1217,13 +1229,13 @@ app.get('/api/assets', authenticateToken, requireRole('manager'), (req, res) => 
   }
 });
 
-app.post('/api/assets', authenticateToken, requireRole('manager'), (req, res) => {
+app.post('/api/assets', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
     const { assetTag, name, category, location, assignedTo, status, purchaseDate, value } = req.body || {};
     const tag = assetTag || `AST-${Date.now().toString().slice(-6)}`;
-    const resolvedAssignedTo = resolveWorkerDbId(assignedTo);
+    const resolvedAssignedTo = await resolveWorkerDbId(assignedTo);
 
-    const result = statements.insertAsset.run(
+    const result = await statements.insertAsset.run(
       tag,
       name,
       category || 'audio-visual',
@@ -1240,12 +1252,12 @@ app.post('/api/assets', authenticateToken, requireRole('manager'), (req, res) =>
   }
 });
 
-app.put('/api/assets/:id', authenticateToken, requireRole('manager'), (req, res) => {
+app.put('/api/assets/:id', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
     const { name, category, location, assignedTo, status, value } = req.body || {};
-    const resolvedAssignedTo = resolveWorkerDbId(assignedTo);
+    const resolvedAssignedTo = await resolveWorkerDbId(assignedTo);
 
-    statements.updateAsset.run(
+    await statements.updateAsset.run(
       name,
       category,
       location,
@@ -1261,9 +1273,9 @@ app.put('/api/assets/:id', authenticateToken, requireRole('manager'), (req, res)
   }
 });
 
-app.delete('/api/assets/:id', authenticateToken, requireRole('superadmin'), (req, res) => {
+app.delete('/api/assets/:id', authenticateToken, requireRole('superadmin'), async (req, res) => {
   try {
-    statements.deleteAsset.run(req.params.id);
+    await statements.deleteAsset.run(req.params.id);
     res.json({ ok: true });
   } catch (error) {
     console.error('Error deleting asset:', error);
@@ -1271,9 +1283,9 @@ app.delete('/api/assets/:id', authenticateToken, requireRole('superadmin'), (req
   }
 });
 
-app.get('/api/assets/:id/maintenance', authenticateToken, requireRole('manager'), (req, res) => {
+app.get('/api/assets/:id/maintenance', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
-    const records = statements.getAssetMaintenance.all(req.params.id);
+    const records = await statements.getAssetMaintenance.all(req.params.id);
     res.json(records);
   } catch (error) {
     console.error('Error fetching asset maintenance:', error);
@@ -1281,10 +1293,10 @@ app.get('/api/assets/:id/maintenance', authenticateToken, requireRole('manager')
   }
 });
 
-app.post('/api/assets/:id/maintenance', authenticateToken, requireRole('manager'), (req, res) => {
+app.post('/api/assets/:id/maintenance', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
     const { serviceDate, cost, performedBy, notes } = req.body;
-    statements.insertAssetMaintenance.run(
+    await statements.insertAssetMaintenance.run(
       req.params.id,
       serviceDate || new Date().toISOString().split('T')[0],
       Number(cost || 0),
@@ -1299,9 +1311,9 @@ app.post('/api/assets/:id/maintenance', authenticateToken, requireRole('manager'
 });
 
 // Discipleship LMS Endpoints
-app.get('/api/discipleship/courses', authenticateToken, requireRole('member'), (req, res) => {
+app.get('/api/discipleship/courses', authenticateToken, requireRole('member'), async (req, res) => {
   try {
-    const courses = statements.getAllDiscipleshipCourses.all();
+    const courses = await statements.getAllDiscipleshipCourses.all();
     res.json(courses);
   } catch (error) {
     console.error('Error fetching discipleship courses:', error);
@@ -1309,9 +1321,9 @@ app.get('/api/discipleship/courses', authenticateToken, requireRole('member'), (
   }
 });
 
-app.get('/api/discipleship/progress', authenticateToken, requireRole('member'), (req, res) => {
+app.get('/api/discipleship/progress', authenticateToken, requireRole('member'), async (req, res) => {
   try {
-    const progress = statements.getAllMemberCourses.all();
+    const progress = await statements.getAllMemberCourses.all();
     res.json(progress);
   } catch (error) {
     console.error('Error fetching member course progress:', error);
@@ -1319,10 +1331,10 @@ app.get('/api/discipleship/progress', authenticateToken, requireRole('member'), 
   }
 });
 
-app.post('/api/discipleship/progress', authenticateToken, requireRole('member'), (req, res) => {
+app.post('/api/discipleship/progress', authenticateToken, requireRole('member'), async (req, res) => {
   try {
     const { workerId, courseId, status, completionDate } = req.body;
-    statements.upsertMemberCourse.run(
+    await statements.upsertMemberCourse.run(
       Number(workerId),
       Number(courseId),
       status || 'in-progress',
@@ -1336,9 +1348,9 @@ app.post('/api/discipleship/progress', authenticateToken, requireRole('member'),
 });
 
 // Service Plans Endpoints (Planning Center Services)
-app.get('/api/service-plans', authenticateToken, requireRole('member'), (req, res) => {
+app.get('/api/service-plans', authenticateToken, requireRole('member'), async (req, res) => {
   try {
-    const plans = statements.getAllServicePlans.all();
+    const plans = await statements.getAllServicePlans.all();
     res.json(plans);
   } catch (error) {
     console.error('Error fetching service plans:', error);
@@ -1346,7 +1358,7 @@ app.get('/api/service-plans', authenticateToken, requireRole('member'), (req, re
   }
 });
 
-app.post('/api/service-plans', authenticateToken, requireRole('manager'), (req, res) => {
+app.post('/api/service-plans', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
     const { title, date, serviceType, leaderId } = req.body || {};
     const planDate = date || new Date().toISOString().split('T')[0];
@@ -1355,7 +1367,7 @@ app.post('/api/service-plans', authenticateToken, requireRole('manager'), (req, 
       return res.status(400).json({ error: 'Title is required' });
     }
 
-    const result = statements.insertServicePlan.run(
+    const result = await statements.insertServicePlan.run(
       title,
       planDate,
       serviceType || 'Sunday Glorious',
@@ -1368,7 +1380,7 @@ app.post('/api/service-plans', authenticateToken, requireRole('manager'), (req, 
   }
 });
 
-app.put('/api/service-plans/:id', authenticateToken, requireRole('manager'), (req, res) => {
+app.put('/api/service-plans/:id', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
     const body = req.body || {};
     const title = body.title;
@@ -1379,7 +1391,7 @@ app.put('/api/service-plans/:id', authenticateToken, requireRole('manager'), (re
       return res.status(400).json({ error: 'Title is required' });
     }
 
-    statements.updateServicePlan.run(title, date, serviceType, req.params.id);
+    await statements.updateServicePlan.run(title, date, serviceType, req.params.id);
     res.json({ ok: true });
   } catch (error) {
     console.error('Error updating service plan:', error);
@@ -1387,9 +1399,9 @@ app.put('/api/service-plans/:id', authenticateToken, requireRole('manager'), (re
   }
 });
 
-app.delete('/api/service-plans/:id', authenticateToken, requireRole('manager'), (req, res) => {
+app.delete('/api/service-plans/:id', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
-    statements.deleteServicePlan.run(req.params.id);
+    await statements.deleteServicePlan.run(req.params.id);
     res.json({ ok: true });
   } catch (error) {
     console.error('Error deleting service plan:', error);
@@ -1397,9 +1409,9 @@ app.delete('/api/service-plans/:id', authenticateToken, requireRole('manager'), 
   }
 });
 
-app.get('/api/service-plans/:id/items', authenticateToken, requireRole('member'), (req, res) => {
+app.get('/api/service-plans/:id/items', authenticateToken, requireRole('member'), async (req, res) => {
   try {
-    const items = statements.getServiceItems.all(req.params.id);
+    const items = await statements.getServiceItems.all(req.params.id);
     res.json(items);
   } catch (error) {
     console.error('Error fetching service items:', error);
@@ -1407,7 +1419,7 @@ app.get('/api/service-plans/:id/items', authenticateToken, requireRole('member')
   }
 });
 
-app.post('/api/service-plans/:id/items', authenticateToken, requireRole('manager'), (req, res) => {
+app.post('/api/service-plans/:id/items', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
     const body = req.body || {};
     const sequence = Number(body.sequence || 1);
@@ -1420,7 +1432,7 @@ app.post('/api/service-plans/:id/items', authenticateToken, requireRole('manager
       return res.status(400).json({ error: 'Item title is required' });
     }
 
-    statements.insertServiceItem.run(
+    await statements.insertServiceItem.run(
       req.params.id,
       sequence,
       title,
@@ -1435,7 +1447,7 @@ app.post('/api/service-plans/:id/items', authenticateToken, requireRole('manager
   }
 });
 
-app.put('/api/service-plans/items/:itemId', authenticateToken, requireRole('manager'), (req, res) => {
+app.put('/api/service-plans/items/:itemId', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
     const body = req.body || {};
     const title = body.title;
@@ -1443,7 +1455,7 @@ app.put('/api/service-plans/items/:itemId', authenticateToken, requireRole('mana
     const leaderName = body.leaderName || body.leader_name || null;
     const notes = body.notes || null;
 
-    statements.updateServiceItem.run(title, durationMinutes, leaderName, notes, req.params.itemId);
+    await statements.updateServiceItem.run(title, durationMinutes, leaderName, notes, req.params.itemId);
     res.json({ ok: true });
   } catch (error) {
     console.error('Error updating service item:', error);
@@ -1451,9 +1463,9 @@ app.put('/api/service-plans/items/:itemId', authenticateToken, requireRole('mana
   }
 });
 
-app.delete('/api/service-plans/items/:itemId', authenticateToken, requireRole('manager'), (req, res) => {
+app.delete('/api/service-plans/items/:itemId', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
-    statements.deleteServiceItem.run(req.params.itemId);
+    await statements.deleteServiceItem.run(req.params.itemId);
     res.json({ ok: true });
   } catch (error) {
     console.error('Error deleting service item:', error);
@@ -1461,9 +1473,9 @@ app.delete('/api/service-plans/items/:itemId', authenticateToken, requireRole('m
   }
 });
 
-app.delete('/api/service-plans/roster/:rosterId', authenticateToken, requireRole('manager'), (req, res) => {
+app.delete('/api/service-plans/roster/:rosterId', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
-    statements.deleteServiceRoster.run(req.params.rosterId);
+    await statements.deleteServiceRoster.run(req.params.rosterId);
     res.json({ ok: true });
   } catch (error) {
     console.error('Error deleting service roster:', error);
@@ -1471,9 +1483,9 @@ app.delete('/api/service-plans/roster/:rosterId', authenticateToken, requireRole
   }
 });
 
-app.get('/api/service-plans/:id/roster', authenticateToken, requireRole('member'), (req, res) => {
+app.get('/api/service-plans/:id/roster', authenticateToken, requireRole('member'), async (req, res) => {
   try {
-    const roster = statements.getServiceRoster.all(req.params.id);
+    const roster = await statements.getServiceRoster.all(req.params.id);
     res.json(roster);
   } catch (error) {
     console.error('Error fetching service roster:', error);
@@ -1481,7 +1493,7 @@ app.get('/api/service-plans/:id/roster', authenticateToken, requireRole('member'
   }
 });
 
-app.post('/api/service-plans/:id/roster', authenticateToken, requireRole('manager'), (req, res) => {
+app.post('/api/service-plans/:id/roster', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
     const body = req.body || {};
     const department = body.department || 'Ushering';
@@ -1493,7 +1505,7 @@ app.post('/api/service-plans/:id/roster', authenticateToken, requireRole('manage
       return res.status(400).json({ error: 'Worker ID is required' });
     }
 
-    statements.insertServiceRoster.run(
+    await statements.insertServiceRoster.run(
       req.params.id,
       department,
       workerId,
@@ -1508,9 +1520,9 @@ app.post('/api/service-plans/:id/roster', authenticateToken, requireRole('manage
 });
 
 // Master Church Calendar Endpoints (Planning Center Calendar)
-app.get('/api/calendar/events', authenticateToken, requireRole('member'), (req, res) => {
+app.get('/api/calendar/events', authenticateToken, requireRole('member'), async (req, res) => {
   try {
-    const events = statements.getAllChurchEvents.all();
+    const events = await statements.getAllChurchEvents.all();
     res.json(events);
   } catch (error) {
     console.error('Error fetching calendar events:', error);
@@ -1518,7 +1530,7 @@ app.get('/api/calendar/events', authenticateToken, requireRole('member'), (req, 
   }
 });
 
-app.post('/api/calendar/events', authenticateToken, requireRole('manager'), (req, res) => {
+app.post('/api/calendar/events', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
     const body = req.body || {};
     const title = body.title;
@@ -1533,7 +1545,7 @@ app.post('/api/calendar/events', authenticateToken, requireRole('manager'), (req
       return res.status(400).json({ error: 'Event title is required' });
     }
 
-    const result = statements.insertChurchEvent.run(
+    const result = await statements.insertChurchEvent.run(
       title,
       description,
       eventDate,
@@ -1549,9 +1561,9 @@ app.post('/api/calendar/events', authenticateToken, requireRole('manager'), (req
   }
 });
 
-app.delete('/api/calendar/events/:id', authenticateToken, requireRole('manager'), (req, res) => {
+app.delete('/api/calendar/events/:id', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
-    statements.deleteChurchEvent.run(req.params.id);
+    await statements.deleteChurchEvent.run(req.params.id);
     res.json({ ok: true });
   } catch (error) {
     console.error('Error deleting calendar event:', error);
@@ -1560,9 +1572,9 @@ app.delete('/api/calendar/events/:id', authenticateToken, requireRole('manager')
 });
 
 // Kiosk Check-In Endpoints (Planning Center Check-Ins)
-app.get('/api/kiosk/checkins', authenticateToken, requireRole('manager'), (req, res) => {
+app.get('/api/kiosk/checkins', authenticateToken, requireRole('manager'), async (req, res) => {
   try {
-    const checkins = statements.getAllKioskCheckins.all();
+    const checkins = await statements.getAllKioskCheckins.all();
     res.json(checkins);
   } catch (error) {
     console.error('Error fetching kiosk checkins:', error);
@@ -1570,7 +1582,7 @@ app.get('/api/kiosk/checkins', authenticateToken, requireRole('manager'), (req, 
   }
 });
 
-app.post('/api/kiosk/checkin', kioskRateLimiter, (req, res) => {
+app.post('/api/kiosk/checkin', kioskRateLimiter, async (req, res) => {
   try {
     const { childName, parentName, parentPhone, department } = req.body || {};
 
@@ -1578,7 +1590,7 @@ app.post('/api/kiosk/checkin', kioskRateLimiter, (req, res) => {
       return res.status(400).json({ error: 'Child Name, Parent Name, and Phone are required' });
     }
     const code = `KSK-${Math.floor(1000 + Math.random() * 9000)}`;
-    const result = statements.insertKioskCheckin.run(
+    const result = await statements.insertKioskCheckin.run(
       childName,
       parentName,
       parentPhone,
@@ -1592,9 +1604,9 @@ app.post('/api/kiosk/checkin', kioskRateLimiter, (req, res) => {
   }
 });
 
-app.put('/api/kiosk/checkout/:id', (req, res) => {
+app.put('/api/kiosk/checkout/:id', async (req, res) => {
   try {
-    statements.updateKioskCheckout.run(req.params.id);
+    await statements.updateKioskCheckout.run(req.params.id);
     res.json({ ok: true });
   } catch (error) {
     console.error('Error checking out at kiosk:', error);
@@ -1613,6 +1625,3 @@ if (require.main === module) {
 }
 
 module.exports = app;
-
-
-

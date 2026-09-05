@@ -1,2 +1,7 @@
-backend
-backend/**
+backend/node_modules
+backend/*.db
+backend/*.db-journal
+backend/*.sqlite
+backend/*.sqlite3
+backend/uploads/*
+!backend/uploads/.gitkeep

@@ -1,27 +1,13 @@
-const { db, statements } = require('./database');
+const { statements, ensureReady, execRaw } = require('./database');
 const bcrypt = require('bcryptjs');
 
 // Seed initial data
 const seedData = async () => {
   try {
-    if (process.env.LOAD_SAMPLE_DATA !== 'true') {
-      statements.updateKPIs.run(0, 0, 0);
-      console.log('Sample data loading skipped. Set LOAD_SAMPLE_DATA=true to seed demo records.');
-      return;
-    }
+    await ensureReady();
 
-    console.log('Seeding database with sample data...');
-
-    db.exec(`
-      DELETE FROM clock_in_records;
-      DELETE FROM attendance;
-      DELETE FROM absences;
-      DELETE FROM workers;
-      DELETE FROM users;
-      DELETE FROM sqlite_sequence WHERE name IN ('workers', 'attendance', 'absences', 'clock_in_records', 'users');
-    `);
-
-    // Seed default authentication users with hashed passwords
+    // Always seed login accounts, even without demo data - otherwise there
+    // is no way to sign in to a freshly created database.
     const seedUsers = [
       {
         name: 'Super Admin',
@@ -48,8 +34,28 @@ const seedData = async () => {
 
     for (const user of seedUsers) {
       const hash = bcrypt.hashSync(user.password, 10);
-      statements.insertUser.run(user.name, user.email, hash, user.role, user.workerId);
+      await statements.insertUser.run(user.name, user.email, hash, user.role, user.workerId);
     }
+    console.log(`Seeded ${seedUsers.length} login account(s). IMPORTANT: change these default passwords immediately after first login.`);
+
+    if (process.env.LOAD_SAMPLE_DATA !== 'true') {
+      const workerCount = (await statements.getWorkerCount.get('Active'))?.count || 0;
+      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStats = await statements.getAttendanceStats.get(todayStr);
+      await statements.updateKPIs.run(workerCount, todayStats?.present || 0, todayStats?.absent || 0);
+      console.log('Sample data loading skipped. Set LOAD_SAMPLE_DATA=true to seed demo records.');
+      return;
+    }
+
+    console.log('Seeding database with sample data...');
+
+    await execRaw(`
+      DELETE FROM clock_in_records;
+      DELETE FROM attendance;
+      DELETE FROM absences;
+      DELETE FROM workers;
+      DELETE FROM sqlite_sequence WHERE name IN ('workers', 'attendance', 'absences', 'clock_in_records');
+    `);
 
     const demoSettings = {
       clock_in_portal_enabled: 'true',
@@ -63,7 +69,7 @@ const seedData = async () => {
     };
 
     for (const [key, value] of Object.entries(demoSettings)) {
-      statements.upsertSetting.run(key, value);
+      await statements.upsertSetting.run(key, value);
     }
 
     // Insert sample workers
@@ -1279,7 +1285,7 @@ const seedData = async () => {
     // Insert sample workers and collect their IDs
     const insertedWorkers = [];
     for (const worker of uniqueWorkers) {
-      const result = statements.insertWorker.run(
+      const result = await statements.insertWorker.run(
         worker.externalId,
         worker.name,
         worker.email,
@@ -1316,7 +1322,7 @@ const seedData = async () => {
             status = Math.random() < lateRate ? 'Late' : 'Present';
           }
 
-          statements.insertAttendance.run(
+          await statements.insertAttendance.run(
             worker.id,
             service,
             status,
@@ -1329,11 +1335,11 @@ const seedData = async () => {
     console.log('Generated attendance data for 30 days');
 
     // Update KPIs
-    const workerCount = statements.getWorkerCount.get('Active').count;
+    const workerCount = (await statements.getWorkerCount.get('Active')).count;
     const todayStr = today.toISOString().split('T')[0];
-    const todayStats = statements.getAttendanceStats.get(todayStr);
+    const todayStats = await statements.getAttendanceStats.get(todayStr);
 
-    statements.updateKPIs.run(
+    await statements.updateKPIs.run(
       workerCount,
       todayStats.present,
       todayStats.absent
