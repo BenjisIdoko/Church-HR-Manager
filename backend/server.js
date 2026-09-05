@@ -926,33 +926,36 @@ app.get('/api/clock-in/settings', authenticateToken, requireRole('member'), asyn
 });
 
 app.put('/api/clock-in/settings', authenticateToken, requireRole('superadmin'), async (req, res) => {
-  const allowedKeys = [
-    'clock_in_portal_enabled',
-    'clock_in_portal_name',
-    'clock_in_portal_description',
-    'church_latitude',
-    'church_longitude',
-    'geofence_radius_meters',
-    'geofence_tolerance_meters',
-    'device_import_enabled',
-  ];
+  // req.body keys arrive camelCase (normalizeRequestBody converts every
+  // incoming body from snake_case), so the allow-list maps camelCase ->
+  // the snake_case column name actually stored in the settings table.
+  const allowedKeys = {
+    clockInPortalEnabled: 'clock_in_portal_enabled',
+    clockInPortalName: 'clock_in_portal_name',
+    clockInPortalDescription: 'clock_in_portal_description',
+    churchLatitude: 'church_latitude',
+    churchLongitude: 'church_longitude',
+    geofenceRadiusMeters: 'geofence_radius_meters',
+    geofenceToleranceMeters: 'geofence_tolerance_meters',
+    deviceImportEnabled: 'device_import_enabled',
+  };
 
   const payload = req.body || {};
 
   try {
-    for (const key of allowedKeys) {
-      if (Object.prototype.hasOwnProperty.call(payload, key)) {
-        const value = String(payload[key] ?? '').trim();
+    for (const [payloadKey, settingKey] of Object.entries(allowedKeys)) {
+      if (Object.prototype.hasOwnProperty.call(payload, payloadKey)) {
+        const value = String(payload[payloadKey] ?? '').trim();
         if (value.length === 0) {
           continue;
         }
 
-        const validationError = validateClockInSetting(key, value);
+        const validationError = validateClockInSetting(settingKey, value);
         if (validationError) {
           return res.status(400).json({ ok: false, message: validationError });
         }
 
-        await statements.upsertSetting.run(key, value);
+        await statements.upsertSetting.run(settingKey, value);
       }
     }
 
